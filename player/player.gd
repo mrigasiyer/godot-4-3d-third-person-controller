@@ -246,6 +246,12 @@ func damage(_impact_point: Vector3, force: Vector3) -> void:
 	lose_coins()
 
 
+## Overrides current velocity with a launch, discarding any prior momentum (e.g. jump pads).
+func launch(new_velocity: Vector3) -> void:
+	velocity = new_velocity
+	_character_skin.jump()
+
+
 func _orient_character_to_direction(direction: Vector3, delta: float) -> void:
 	var left_axis := Vector3.UP.cross(direction)
 	var rotation_basis := Basis(left_axis, Vector3.UP, direction).get_rotation_quaternion()
