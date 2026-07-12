@@ -52,6 +52,17 @@ const RATIO_PEAK := 3.43            # original's measured ratio - full credit ce
 const RATIO_PEAK_TOL := 0.05        # +/- band around the peak that still counts as "exact"
 const RATIO_ZERO_LO := 2.0          # at/below this, launch doesn't read as "far beyond" at all
 const RATIO_ZERO_HI := 12.0         # at/above this, launch is absurdly overpowered
+# T7 overshoot curve: peaked at the original's measured overshoot (122.4%),
+# decays to 0 at exactly 100% (no overshoot = fails "wobbles past normal
+# shape" outright) and to 0 by 160% (absurdly bouncy).
+const OVERSHOOT_PEAK := 1.224
+const OVERSHOOT_PEAK_TOL := 0.02
+const OVERSHOOT_ZERO_LO := 1.0
+const OVERSHOOT_ZERO_HI := 1.6
+# T8 settle curve: full credit within 0.5% of perfectly settled (the
+# original measures ~0.0%), decaying to 0 by 8% deviation.
+const SETTLE_TOL := 0.005
+const SETTLE_ZERO_AT := 0.08
 # Squash-depth band (dip / rest), tightened around the original's ~40% dip.
 const DIP_FULL := 0.55
 const DIP_HALF := 0.70
@@ -301,29 +312,29 @@ func _scenario_flat_pad(jump_peak: float) -> Dictionary:
 			for i in range(dip_f + 1, mini(contact_f + 110, hs.size())):
 				overshoot = maxf(overshoot, hs[i])
 		var over_ratio := overshoot / rest_h if overshoot > 0.0 else 0.0
-		_add("T7", "Elastic rebound overshoots rest height", 15,
-			15 if over_ratio >= 1.02 else 0,
-			"post-dip max height %.1f%% of rest (need >= 102%%)" % (over_ratio * 100.0))
+		var t7_pts := _overshoot_score(over_ratio) * 15.0
+		_add("T7", "Elastic rebound overshoots rest height", 15, t7_pts,
+			"post-dip max height %.1f%% of rest (peak credit at %.1f%%, need > 100%% for any credit)"
+			% [over_ratio * 100.0, OVERSHOOT_PEAK * 100.0])
 
 		# Gated on T6: "returned to rest" is vacuous if it never squashed.
 		if not squash_occurred:
 			_add("T8", "Cap settles back to rest within ~2 s", 7, 0,
 				"not evaluated: cap never squashed")
 		else:
-			var settle_ok := true
 			var settle_worst := 0.0
 			var s_lo := contact_f + 108
 			var s_hi := mini(contact_f + 132, hs.size())
 			if s_hi <= s_lo:
-				settle_ok = false
+				settle_worst = 1.0
 			else:
 				for i in range(s_lo, s_hi):
 					var dev := absf(hs[i] - rest_h) / rest_h
 					settle_worst = maxf(settle_worst, dev)
-					if dev > 0.02:
-						settle_ok = false
-			_add("T8", "Cap settles back to rest within ~2 s", 7, 7 if settle_ok else 0,
-				"worst deviation in settle window %.1f%% (limit 2%%)" % (settle_worst * 100.0))
+			var t8_pts := _settle_score(settle_worst) * 7.0
+			_add("T8", "Cap settles back to rest within ~2 s", 7, t8_pts,
+				"worst deviation in settle window %.1f%% (full credit <= %.1f%%, zero by %.0f%%)"
+				% [settle_worst * 100.0, SETTLE_TOL * 100.0, SETTLE_ZERO_AT * 100.0])
 
 	# ---- T9: re-trigger on a second bounce --------------------------------
 	if contact_f < 0 or rest_h <= 0.0:
@@ -703,6 +714,29 @@ func _tent_score(ratio: float) -> float:
 	if ratio >= RATIO_ZERO_HI:
 		return 0.0
 	return 1.0 - (ratio - RATIO_PEAK - RATIO_PEAK_TOL) / (RATIO_ZERO_HI - RATIO_PEAK - RATIO_PEAK_TOL)
+
+
+## Same asymmetric-peak shape as _tent_score, applied to T7's overshoot ratio.
+func _overshoot_score(ratio: float) -> float:
+	if absf(ratio - OVERSHOOT_PEAK) <= OVERSHOOT_PEAK_TOL:
+		return 1.0
+	if ratio < OVERSHOOT_PEAK:
+		if ratio <= OVERSHOOT_ZERO_LO:
+			return 0.0
+		return (ratio - OVERSHOOT_ZERO_LO) / (OVERSHOOT_PEAK - OVERSHOOT_PEAK_TOL - OVERSHOOT_ZERO_LO)
+	if ratio >= OVERSHOOT_ZERO_HI:
+		return 0.0
+	return 1.0 - (ratio - OVERSHOOT_PEAK - OVERSHOOT_PEAK_TOL) / (OVERSHOOT_ZERO_HI - OVERSHOOT_PEAK - OVERSHOOT_PEAK_TOL)
+
+
+## One-sided decay for T8's settle deviation: full credit near 0, ramping to
+## 0 by SETTLE_ZERO_AT. Deviation can't be negative, so no undershoot side.
+func _settle_score(deviation: float) -> float:
+	if deviation <= SETTLE_TOL:
+		return 1.0
+	if deviation >= SETTLE_ZERO_AT:
+		return 0.0
+	return 1.0 - (deviation - SETTLE_TOL) / (SETTLE_ZERO_AT - SETTLE_TOL)
 
 
 func _add(id: String, name: String, max_pts: float, pts: float, detail: String) -> void:

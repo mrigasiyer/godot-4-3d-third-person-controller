@@ -54,8 +54,8 @@ is >= 60, `1` otherwise; the full per-check JSON report is written to stdout.
 | T10a | Non-player (enemy) does not trigger launch or squash | 5 |
 | T10b | Non-player (crate) does not trigger launch or squash | 5 |
 | T6 | Cap squashes on contact: depth (8) + instant snap timing (4) | 12 |
-| T7 | Elastic rebound overshoots rest height (>= 2%) after the dip | 15 |
-| T8 | Cap settles back to rest height (+/- 2%) within ~2 s | 7 |
+| T7 | Elastic rebound overshoots rest height: continuous curve peaked at original's 122.4% | 15 |
+| T8 | Cap settles back to rest: continuous, full credit within 0.5%, zero by 8% deviation | 7 |
 | T9 | Squash re-triggers on a second bounce | 4 |
 | T11 | Pad instances have independent state (untouched pad stays at rest) | 2 |
 
