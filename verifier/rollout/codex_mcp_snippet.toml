@@ -1,0 +1,9 @@
+# One-time Codex CLI setup: append this to ~/.codex/config.toml
+# (Codex reads MCP servers from global config, not per-project files.)
+
+[mcp_servers.godot]
+command = "npx"
+args = ["@coding-solo/godot-mcp"]
+
+[mcp_servers.godot.env]
+GODOT_PATH = "/Applications/Godot.app/Contents/MacOS/Godot"
