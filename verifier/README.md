@@ -42,7 +42,8 @@ is >= 60, `1` otherwise; the full per-check JSON report is written to stdout.
 
 | Check | Description | Pts |
 |---|---|---|
-| T1 | Calibration: normal jump height matches original (regression guard) | 5 |
+| T1a | Regression guard: normal jump height matches original | 3 |
+| T1b | Regression guard: pad's idle rest geometry matches original | 2 |
 | T2 | Instant, real-physics launch on flat-pad contact (ballistic assertion) | 15 |
 | T3 | Launch magnitude: continuous curve centered on ~3.4x normal jump | 10 |
 | T4 | Launch overrides prior vertical velocity (walk-on vs fall-on parity) | 8 |
@@ -53,7 +54,22 @@ is >= 60, `1` otherwise; the full per-check JSON report is written to stdout.
 | T6 | Cap squashes on contact (vertical visual height dips to <= 80%) | 12 |
 | T7 | Elastic rebound overshoots rest height (>= 2%) after the dip | 15 |
 | T8 | Cap settles back to rest height (+/- 2%) within ~2 s | 7 |
-| T9 | Squash re-triggers on a second bounce | 6 |
+| T9 | Squash re-triggers on a second bounce | 4 |
+| T11 | Pad instances have independent state (untouched pad stays at rest) | 2 |
+
+Gating: negative/stability checks only score when their positive prerequisite
+exists, so the null (ablated) solution cannot collect vacuous passes. T8 and
+T11 require the squash to have occurred (T6); T10a/b require the player launch
+to exist (T2). Gated-out checks report "not evaluated" and score 0. The only
+points available without implementing anything are the two regression guards
+(T1a + T1b = 5), which measure "didn't break the rest of the game."
+
+Unscored diagnostics (reported in the JSON, never scored):
+- NEG-06: behavior under continuous overlap (player pinned inside the trigger
+  volume for 3 s). Event-driven implementations recover to rest; per-frame
+  re-trigger implementations stay compressed. Not scored because continuous
+  contact cannot occur in normal play - the launch removes the player within a
+  few frames - so scoring it would grade implementation, not outcome.
 
 Measurement notes:
 - "Visual height" is the world-space vertical extent of the pad's visible
