@@ -33,7 +33,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "max": 10.0,
       "name": "Launch magnitude ~3.4x normal jump",
       "passed": false,
-      "points": 0.0
+      "points": 6.6
     },
     {
       "detail": "horizontal speed gained 7.03 m/s under held input (need >= 1.5)",
@@ -52,15 +52,15 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 10.0
     },
     {
-      "detail": "post-dip max height 160.0% of rest (need >= 102%)",
+      "detail": "post-dip max height 160.0% of rest (peak credit at 122.4%, need > 100% for any credit)",
       "id": "T7",
       "max": 15.0,
       "name": "Elastic rebound overshoots rest height",
-      "passed": true,
-      "points": 15.0
+      "passed": false,
+      "points": 0.0
     },
     {
-      "detail": "worst deviation in settle window 0.0% (limit 2%)",
+      "detail": "worst deviation in settle window 0.0% (full credit <= 0.5%, zero by 8%)",
       "id": "T8",
       "max": 7.0,
       "name": "Cap settles back to rest within ~2 s",
@@ -145,7 +145,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
     "jump_peak_m": 2.3,
     "pad_rest_height_m": 1.607
   },
-  "score": 88.0,
+  "score": 79.6,
   "task": "jumping-pad"
 }
-=== SCORE: 88.0 / 100 ===
+=== SCORE: 79.6 / 100 ===
