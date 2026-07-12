@@ -85,6 +85,12 @@ case "$AGENT" in
     opencode run --model openrouter/minimax/minimax-m3 "$PROMPT" \
       > "$LOG" 2>&1
     ;;
+  qwen3)
+    echo "harness: opencode $(opencode --version 2>/dev/null | head -1)" >> "$META"
+    echo "model: openrouter/qwen/qwen3-30b-a3b-instruct-2507 (small/lightweight MoE, 3B active params)" >> "$META"
+    opencode run --model openrouter/qwen/qwen3-30b-a3b-instruct-2507 "$PROMPT" \
+      > "$LOG" 2>&1
+    ;;
   *)
     echo "unknown agent: $AGENT" >&2; exit 2 ;;
 esac
