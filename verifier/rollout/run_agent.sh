@@ -55,8 +55,15 @@ case "$AGENT" in
       > "$LOG" 2>&1
     ;;
   gemini31pro)
+    echo "harness: gemini-cli $(gemini --version 2>/dev/null | head -1)" >> "$META"
+    echo "model: gemini-3.1-pro-preview" >> "$META"
+    GEMINI_CLI_TRUST_WORKSPACE=true gemini -p "$PROMPT" \
+      -m gemini-3.1-pro-preview --approval-mode yolo \
+      > "$LOG" 2>&1
+    ;;
+  gemini31pro-or)
     echo "harness: opencode $(opencode --version 2>/dev/null | head -1)" >> "$META"
-    echo "model: openrouter/google/gemini-3.1-pro-preview" >> "$META"
+    echo "model: openrouter/google/gemini-3.1-pro-preview (OpenRouter fallback, not Gemini CLI)" >> "$META"
     opencode run --model openrouter/google/gemini-3.1-pro-preview "$PROMPT" \
       > "$LOG" 2>&1
     ;;
