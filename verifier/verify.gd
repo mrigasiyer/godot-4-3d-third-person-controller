@@ -29,6 +29,8 @@ const CONTACT_GRACE_FRAMES := 6     # max frames between pad contact and launch
 const BALLISTIC_EPS := 0.15        # |dv_y - (-g*dt)| tolerance per frame
 const MC_SPEED_GAIN := 1.5          # m/s horizontal gain proving midair control
 const NONPLAYER_VY_MAX := 3.0       # any more upward velocity = it got launched
+const RUN_SPEED := 8.0              # matches player.gd's move_speed default
+const HV_WIPE_MAX := 2.5            # m/s horizontal speed post-launch that still counts as "wiped"
 const EXPECTED_REST_H := 1.607      # pad rest visual height, measured on original assets
 const REST_H_TOL_RATIO := 0.05      # +/-5% band for the T1b rest-height regression guard
 # Magnitude tent curve (ratio of pad peak to normal jump peak). The spec
@@ -66,6 +68,7 @@ func _main() -> void:
 	var jump_peak := await _scenario_calibration()
 	var flat := await _scenario_flat_pad(jump_peak)
 	await _scenario_fall_parity(flat.get("peak_gentle", -1.0))
+	await _scenario_horizontal_override()
 	await _scenario_tilted_pad()
 	var launched: bool = flat.get("launched", false)
 	await _scenario_nonplayer("T10a", "Enemy does not trigger the pad", BEETLE_SCENE, launched)
@@ -379,7 +382,7 @@ func _scenario_fall_parity(peak_gentle: float) -> void:
 	var pad: Node3D = arena.pad
 	var player := _spawn_player(arena, Vector3(0, 7.4, 0))
 	if player == null or pad == null or peak_gentle <= 0.0:
-		_add("T4", "Launch overrides prior vertical velocity", 8, 0,
+		_add("T4a", "Launch overrides prior vertical velocity", 5, 0,
 			"prerequisite missing (no gentle-drop launch to compare against)")
 		_free_arena(arena)
 		return
@@ -393,17 +396,64 @@ func _scenario_fall_parity(peak_gentle: float) -> void:
 			launch_f = f
 
 	if launch_f < 0:
-		_add("T4", "Launch overrides prior vertical velocity", 8, 0, "no launch after high fall")
+		_add("T4a", "Launch overrides prior vertical velocity", 5, 0, "no launch after high fall")
 	else:
 		var top := -INF
 		for i in range(launch_f, ys.size()):
 			top = maxf(top, ys[i])
 		var peak_fall := top - ys[launch_f]
 		var mismatch := absf(peak_fall - peak_gentle) / maxf(peak_fall, peak_gentle)
-		_add("T4", "Launch overrides prior vertical velocity", 8,
-			8 if mismatch <= 0.10 else 0,
+		_add("T4a", "Launch overrides prior vertical velocity", 5,
+			5 if mismatch <= 0.10 else 0,
 			"gentle-drop peak %.2f m vs high-fall peak %.2f m (mismatch %.0f%%, limit 10%%)"
 			% [peak_gentle, peak_fall, mismatch * 100.0])
+	_free_arena(arena)
+
+
+## T4b - a player sprinting onto a flat pad must not carry that horizontal
+## momentum through the bounce; the launch alone decides the outcome.
+func _scenario_horizontal_override() -> void:
+	var arena := _make_arena(true, 0.0)
+	var pad: Node3D = arena.pad
+	if pad == null:
+		_add("T4b", "Launch overrides prior horizontal velocity", 3, 0, "pad failed to load")
+		_free_arena(arena)
+		return
+
+	# Spawn just outside the trigger zone, already moving at running speed
+	# toward the pad's center, so contact happens within a few frames with
+	# substantial horizontal velocity still intact (no camera/input needed -
+	# direct velocity injection, same convention as the high-fall spawn above).
+	var spawn := pad.global_transform * Vector3(-1.3, 1.4, 0)
+	var scene := load(PLAYER_SCENE)
+	var player: CharacterBody3D = scene.instantiate() if scene else null
+	if player == null:
+		_add("T4b", "Launch overrides prior horizontal velocity", 3, 0, "player scene failed to load")
+		_free_arena(arena)
+		return
+	player.position = spawn
+	arena.root.add_child(player)
+	var approach_dir := (pad.global_position - spawn)
+	approach_dir.y = 0.0
+	approach_dir = approach_dir.normalized()
+	player.velocity = approach_dir * RUN_SPEED
+
+	var launch_f := -1
+	var hv_at_launch := -1.0
+	for f in 120:
+		await physics_frame
+		if launch_f < 0 and player.velocity.y > LAUNCH_VY_MIN:
+			launch_f = f
+			hv_at_launch = _hspeed(player.velocity)
+			break
+
+	if launch_f < 0:
+		_add("T4b", "Launch overrides prior horizontal velocity", 3, 0, "no launch reached")
+	else:
+		_add("T4b", "Launch overrides prior horizontal velocity", 3,
+			3 if hv_at_launch <= HV_WIPE_MAX else 0,
+			"horizontal speed at launch %.2f m/s from a %.1f m/s run-up (need <= %.1f)"
+			% [hv_at_launch, RUN_SPEED, HV_WIPE_MAX])
 	_free_arena(arena)
 
 

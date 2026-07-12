@@ -46,7 +46,8 @@ is >= 60, `1` otherwise; the full per-check JSON report is written to stdout.
 | T1b | Regression guard: pad's idle rest geometry matches original | 2 |
 | T2 | Instant, real-physics launch on flat-pad contact (ballistic assertion) | 15 |
 | T3 | Launch magnitude: continuous curve centered on ~3.4x normal jump | 10 |
-| T4 | Launch overrides prior vertical velocity (walk-on vs fall-on parity) | 8 |
+| T4a | Launch overrides prior vertical velocity (walk-on vs fall-on parity) | 5 |
+| T4b | Launch overrides prior horizontal velocity (sprint-onto-pad momentum is wiped, not carried) | 3 |
 | T5 | Launch direction follows pad orientation (30-degree tilted pad) | 7 |
 | T-MC | Midair directional control retained after launch | 5 |
 | T10a | Non-player (enemy) does not trigger launch or squash | 5 |

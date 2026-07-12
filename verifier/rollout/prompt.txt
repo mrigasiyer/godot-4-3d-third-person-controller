@@ -1,1 +1,1 @@
-Read SPEC.md in this project and implement the behavior it describes. A godot MCP server is available to you. Work autonomously until you believe the task is complete, then stop. Do not ask questions.
+Read SPEC.md for instructions. A godot MCP server is available to you. Work autonomously. Do not ask questions.
