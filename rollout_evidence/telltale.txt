@@ -1,0 +1,4 @@
+telltale scan for opus48-2
+distinctive original lines (len>=25) found verbatim in the diff:
+total distinctive matches: 0
+(0-1 = plausible convergence; 2+ = review transcript for exfiltration)
