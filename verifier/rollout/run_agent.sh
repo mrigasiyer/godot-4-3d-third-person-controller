@@ -60,6 +60,12 @@ case "$AGENT" in
     opencode run --model openrouter/google/gemini-3.1-pro-preview "$PROMPT" \
       > "$LOG" 2>&1
     ;;
+  gemini3flash-or)
+    echo "harness: opencode $(opencode --version 2>/dev/null | head -1)" >> "$META"
+    echo "model: openrouter/google/gemini-3-flash-preview (OpenRouter, not Gemini CLI - free-tier quota exhausted)" >> "$META"
+    opencode run --model openrouter/google/gemini-3-flash-preview "$PROMPT" \
+      > "$LOG" 2>&1
+    ;;
   minimax)
     echo "harness: opencode $(opencode --version 2>/dev/null | head -1)" >> "$META"
     echo "model: openrouter/minimax/minimax-m3" >> "$META"
