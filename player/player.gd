@@ -198,6 +198,15 @@ func shoot() -> void:
 	bullet.global_position = origin
 
 
+## Instantly overrides the character's velocity, discarding any existing momentum.
+## Used by external triggers (e.g. jump pads) that need a real physics response
+## -- gravity, air control and collisions still apply normally afterwards --
+## rather than a scripted position change.
+func launch(new_velocity: Vector3) -> void:
+	velocity = new_velocity
+	_character_skin.jump()
+
+
 func reset_position() -> void:
 	transform.origin = _start_position
 
