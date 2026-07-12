@@ -246,6 +246,11 @@ func damage(_impact_point: Vector3, force: Vector3) -> void:
 	lose_coins()
 
 
+func launch_from_jump_pad(launch_velocity: Vector3) -> void:
+	velocity = launch_velocity
+	_character_skin.jump()
+
+
 func _orient_character_to_direction(direction: Vector3, delta: float) -> void:
 	var left_axis := Vector3.UP.cross(direction)
 	var rotation_basis := Basis(left_axis, Vector3.UP, direction).get_rotation_quaternion()
