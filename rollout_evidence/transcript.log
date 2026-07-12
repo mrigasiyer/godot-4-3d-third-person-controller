@@ -1,0 +1,14 @@
+YOLO mode is enabled. All tool calls will be automatically approved.
+YOLO mode is enabled. All tool calls will be automatically approved.
+Ripgrep is not available. Falling back to GrepTool.
+I have fully implemented the mushroom jump pad behavior according to the specifications in `SPEC.md`.
+
+Here is a summary of the changes made to `jumping_pad/jumping_pad.gd`:
+- **Collision Detection:** Connected the `body_entered` signal to detect when objects overlap with the area.
+- **Player Specificity:** Added a type check (`if body is Player`) so only the player character is launched, while enemies, projectiles, and other objects pass through unaffected.
+- **Directional Launch & Momentum Override:** The pad completely overrides the player's `velocity` vector using the jump pad's local UP direction (`global_transform.basis.y.normalized()`). This ensures the player is launched correctly up and outward on slopes, and completely ignores prior momentum while preserving the mid-air control naturally granted by the character controller script.
+- **Powerful Force:** Used an impulse scalar of `35.0` to ensure the launch is significantly more powerful than the standard jump force of `12.0`.
+- **Animation Syncing:** Manually triggers `body._character_skin.jump()` to ensure the player's model shifts appropriately into its jumping and falling animations instead of remaining idle.
+- **Mushroom Rebound Effects:** Implemented a squishy, bouncy reaction to the mushroom cap by utilizing Godot's `Tween` system. When triggered, the mushroom interpolates to a squashed scale rapidly over `0.05s`, then rebounds elastically over `0.8s` with `TRANS_ELASTIC` easing, letting it wobble back to rest. Existing tweens are actively terminated and restarted so every new landing perfectly retriggers the reaction.
+
+No other game systems or scripts were modified, seamlessly matching the requirements.
