@@ -97,8 +97,9 @@ path = os.path.expanduser("~/.claude.json")
 data = json.load(open(path))
 entry = data.setdefault("projects", {}).setdefault(os.environ["RUN_DIR"], {})
 entry["hasTrustDialogAccepted"] = True
+entry["enabledMcpjsonServers"] = ["godot"]
 json.dump(data, open(path, "w"), indent=2)
-print("trusted workspace:", os.environ["RUN_DIR"])
+print("trusted workspace + approved godot MCP:", os.environ["RUN_DIR"])
 PY
 
 # 5. Pre-import assets so no agent wastes effort on import friction
