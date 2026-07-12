@@ -202,6 +202,11 @@ func reset_position() -> void:
 	transform.origin = _start_position
 
 
+func launch_from_jump_pad(launch_velocity: Vector3) -> void:
+	velocity = launch_velocity
+	_character_skin.jump()
+
+
 func collect_coin() -> void:
 	_coins += 1
 	_ui_coins_container.update_coins_amount(_coins)
