@@ -30,7 +30,23 @@ git -C "$RUN_DIR" -c user.name=rollout -c user.email=rollout@local \
   commit -qm "task snapshot"
 
 # 3. MCP configs (godot-mcp) for each harness that reads project-local config
-#    Claude Code:
+#    Claude Code - plus a permissions policy: non-interactive (-p) runs can't
+#    answer prompts, so the godot MCP + local dev tools are pre-approved here,
+#    and network vectors are explicitly denied (evaluation integrity).
+mkdir -p "$RUN_DIR/.claude"
+cat > "$RUN_DIR/.claude/settings.json" <<'EOF'
+{
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "allow": ["mcp__godot__*", "Bash", "Read", "Edit", "Write", "Glob", "Grep", "TodoWrite"],
+    "deny": [
+      "WebFetch", "WebSearch",
+      "Bash(curl:*)", "Bash(wget:*)",
+      "Bash(git clone:*)", "Bash(git fetch:*)", "Bash(git pull:*)", "Bash(git remote:*)"
+    ]
+  }
+}
+EOF
 cat > "$RUN_DIR/.mcp.json" <<'EOF'
 {
   "mcpServers": {
