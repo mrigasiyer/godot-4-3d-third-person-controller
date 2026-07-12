@@ -51,8 +51,8 @@ cat > "$RUN_DIR/.mcp.json" <<'EOF'
 {
   "mcpServers": {
     "godot": {
-      "command": "npx",
-      "args": ["@coding-solo/godot-mcp"],
+      "command": "/opt/homebrew/bin/godot-mcp",
+      "args": [],
       "env": { "GODOT_PATH": "/Applications/Godot.app/Contents/MacOS/Godot" }
     }
   }
@@ -64,8 +64,8 @@ cat > "$RUN_DIR/.gemini/settings.json" <<'EOF'
 {
   "mcpServers": {
     "godot": {
-      "command": "npx",
-      "args": ["@coding-solo/godot-mcp"],
+      "command": "/opt/homebrew/bin/godot-mcp",
+      "args": [],
       "env": { "GODOT_PATH": "/Applications/Godot.app/Contents/MacOS/Godot" }
     }
   }
@@ -78,7 +78,7 @@ cat > "$RUN_DIR/opencode.json" <<'EOF'
   "mcp": {
     "godot": {
       "type": "local",
-      "command": ["npx", "@coding-solo/godot-mcp"],
+      "command": ["/opt/homebrew/bin/godot-mcp"],
       "environment": { "GODOT_PATH": "/Applications/Godot.app/Contents/MacOS/Godot" }
     }
   }

@@ -1,0 +1,1 @@
+Read SPEC.md in this project and implement the behavior it describes. A godot MCP server is available to you for running the project and inspecting the engine. Work autonomously until you believe the task is complete, then stop. Do not ask questions; make reasonable decisions yourself.
