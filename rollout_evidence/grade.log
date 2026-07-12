@@ -33,7 +33,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "max": 10.0,
       "name": "Launch magnitude ~3.4x normal jump",
       "passed": false,
-      "points": 0.0
+      "points": 3.8
     },
     {
       "detail": "horizontal speed gained 7.03 m/s under held input (need >= 1.5)",
@@ -44,7 +44,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 5.0
     },
     {
-      "detail": "depth: dipped to 45% of rest (full <= 55%, half <= 70%) [8.0/8]; snap: reached dip 5 frame(s) after contact (full <= 3, half <= 7) [2.0/4]",
+      "detail": "depth: dipped to 40% of rest (full <= 55%, half <= 70%) [8.0/8]; snap: reached dip 5 frame(s) after contact (full <= 3, half <= 7) [2.0/4]",
       "id": "T6",
       "max": 12.0,
       "name": "Cap squashes on contact (depth + instant snap)",
@@ -52,7 +52,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 10.0
     },
     {
-      "detail": "post-dip max height 122.3% of rest (need >= 102%)",
+      "detail": "post-dip max height 121.8% of rest (need >= 102%)",
       "id": "T7",
       "max": 15.0,
       "name": "Elastic rebound overshoots rest height",
@@ -145,7 +145,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
     "jump_peak_m": 2.3,
     "pad_rest_height_m": 1.607
   },
-  "score": 88.0,
+  "score": 91.8,
   "task": "jumping-pad"
 }
-=== SCORE: 88.0 / 100 ===
+=== SCORE: 91.8 / 100 ===
