@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "godot": {
+      "command": "/opt/homebrew/bin/godot-mcp",
+      "args": [],
+      "env": { "GODOT_PATH": "/Applications/Godot.app/Contents/MacOS/Godot" }
+    }
+  }
+}
