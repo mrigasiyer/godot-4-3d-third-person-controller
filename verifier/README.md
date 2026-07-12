@@ -45,7 +45,7 @@ is >= 60, `1` otherwise; the full per-check JSON report is written to stdout.
 | T1a | Regression guard: normal jump height matches original | 3 |
 | T1b | Regression guard: pad's idle rest geometry matches original | 2 |
 | T2 | Instant, real-physics launch on flat-pad contact (ballistic assertion) | 15 |
-| T3 | Launch magnitude: continuous curve centered on ~3.4x normal jump | 10 |
+| T3 | Launch magnitude: continuous curve peaked at ~3.43x normal jump, no flat bands | 10 |
 | T4a | Launch overrides prior vertical velocity (walk-on vs fall-on parity) | 5 |
 | T4b | Launch overrides prior horizontal velocity (sprint-onto-pad momentum is wiped, not carried) | 3 |
 | T5a | Launch direction follows pad orientation (30-degree tilted pad) | 5 |
@@ -76,14 +76,28 @@ Unscored diagnostics (reported in the JSON, never scored):
 v1.1 hardening (spec v2 no longer states the 3.4x multiplier or squash
 timing, so these bands are tightened around the original's actual measured
 behavior rather than a spec'd constant):
-- T3 magnitude band narrowed to a plateau of [3.2x, 3.65x] (was
-  [3.0x, 3.8x]), zero below 2.6x / above 4.4x (was 2.0x / 5.5x).
 - T6 split into depth (8 pts: full <= 55% of rest, half <= 70%, was a
   single 80%/90% band) and snap timing (4 pts: full credit only if the
   dip is reached within 3 frames of contact, half within 7 - the original
   sets the squashed scale on the same frame as contact; both known v1
   agent solutions eased the compression over ~6 frames instead of
   snapping, so this sub-check is empirically proven to discriminate).
+
+v1.3 hardening (T3 redesign, based on real campaign data): the original
+piecewise tent had a flat [3.2x, 3.65x] plateau, which meant any two guesses
+inside it scored identically, and a hard cliff to zero outside it. Across 13
+real agent runs, nobody derived the original's exact ratio through reasoning
+alone - the specific number is an arbitrary original design choice, not
+recoverable from the remaining (unablated) files, only approachable through
+in-engine iteration nobody attempted - so a punishing all-or-nothing band was
+overstating what "verification" could realistically achieve. Replaced with a
+continuous, asymmetric curve peaked at the original's measured ratio (3.43x,
++/- 0.05 tolerance for full credit): steep down to zero by 2.0x on the
+undershoot side (the spec's "far beyond a normal jump" is an explicit floor -
+too weak fails it outright), gentle down to zero by 12.0x on the overshoot
+side (still satisfies "far beyond", just imprecise, so it should cost points
+gradually, not fall off a cliff). Every distinct ratio now scores distinctly:
+e.g. 4.0x -> 9.4/10, 5.6x -> 7.5/10, 6.4x -> 6.6/10, 8.75x -> 3.8/10.
 
 v1.2 hardening (spec-neutral - both ride on requirements already stated):
 - T4/T5 split: T4a/T5a keep the prior vertical-override and tilt-direction

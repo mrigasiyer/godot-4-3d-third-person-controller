@@ -38,14 +38,20 @@ const T5B_RATIO_HI := 1.25          # of the flat-pad launch speed (same power, 
 const ASCENT_CHECK_MAX_FRAMES := 90 # cap on how far into the ascent the ballistic check walks
 const MIN_ASCENT_CHECK_FRAMES := 8  # below this the ascent was too short to say anything
 const FLIGHT_TIME_TOL_FRAMES := 3.0 # tolerance for actual vs predicted time-to-peak
-# Magnitude tent curve (ratio of pad peak to normal jump peak). The spec
-# gives no number (v2: "far beyond the highest jump"), so this band is
-# tightened around the original's actual measured ratio (~3.43x) - agents
-# must test/tune their own launch, not transcribe a spec'd constant.
-const RATIO_ZERO_LO := 2.6
-const RATIO_FULL_LO := 3.2
-const RATIO_FULL_HI := 3.65
-const RATIO_ZERO_HI := 4.4
+# Magnitude scoring curve (ratio of pad peak to normal jump peak). The spec
+# gives no number (v2: "far beyond the highest jump"), so full credit centers
+# on the original's actual measured ratio (~3.43x) and every ratio away from
+# it scores continuously less - no flat plateau, no cliff edges, so a 3.5x
+# guess and a 6.4x guess get meaningfully different scores instead of both
+# landing in the same all-or-nothing band. Asymmetric on purpose: undershoot
+# is a harder floor (the spec explicitly demands "far beyond" a normal jump,
+# so a weak launch fails that outright), overshoot is a gentler, wider slope
+# (still satisfies "far beyond", just imprecise, so it should lose points
+# gradually rather than falling off a cliff).
+const RATIO_PEAK := 3.43            # original's measured ratio - full credit center
+const RATIO_PEAK_TOL := 0.05        # +/- band around the peak that still counts as "exact"
+const RATIO_ZERO_LO := 2.0          # at/below this, launch doesn't read as "far beyond" at all
+const RATIO_ZERO_HI := 12.0         # at/above this, launch is absurdly overpowered
 # Squash-depth band (dip / rest), tightened around the original's ~40% dip.
 const DIP_FULL := 0.55
 const DIP_HALF := 0.70
@@ -683,17 +689,20 @@ func _max_vy(vels: Array[Vector3]) -> float:
 	return m
 
 
-## Piecewise-linear tent: 0 below RATIO_ZERO_LO, ramps to 1 across
-## [RATIO_ZERO_LO, RATIO_FULL_LO], plateau to RATIO_FULL_HI, ramps back to 0
-## at RATIO_ZERO_HI. Returns 0..1.
+## Asymmetric linear peak, continuous (no flat plateau, no cliff edges): 1.0
+## within RATIO_PEAK_TOL of RATIO_PEAK, ramping steeply to 0 at RATIO_ZERO_LO
+## on the undershoot side and gently to 0 at RATIO_ZERO_HI on the overshoot
+## side. Every distinct ratio gets a distinct score. Returns 0..1.
 func _tent_score(ratio: float) -> float:
-	if ratio <= RATIO_ZERO_LO or ratio >= RATIO_ZERO_HI:
-		return 0.0
-	if ratio < RATIO_FULL_LO:
-		return (ratio - RATIO_ZERO_LO) / (RATIO_FULL_LO - RATIO_ZERO_LO)
-	if ratio <= RATIO_FULL_HI:
+	if absf(ratio - RATIO_PEAK) <= RATIO_PEAK_TOL:
 		return 1.0
-	return 1.0 - (ratio - RATIO_FULL_HI) / (RATIO_ZERO_HI - RATIO_FULL_HI)
+	if ratio < RATIO_PEAK:
+		if ratio <= RATIO_ZERO_LO:
+			return 0.0
+		return (ratio - RATIO_ZERO_LO) / (RATIO_PEAK - RATIO_PEAK_TOL - RATIO_ZERO_LO)
+	if ratio >= RATIO_ZERO_HI:
+		return 0.0
+	return 1.0 - (ratio - RATIO_PEAK - RATIO_PEAK_TOL) / (RATIO_ZERO_HI - RATIO_PEAK - RATIO_PEAK_TOL)
 
 
 func _add(id: String, name: String, max_pts: float, pts: float, detail: String) -> void:
