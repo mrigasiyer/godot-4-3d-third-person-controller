@@ -33,6 +33,11 @@ const RUN_SPEED := 8.0              # matches player.gd's move_speed default
 const HV_WIPE_MAX := 2.5            # m/s horizontal speed post-launch that still counts as "wiped"
 const EXPECTED_REST_H := 1.607      # pad rest visual height, measured on original assets
 const REST_H_TOL_RATIO := 0.05      # +/-5% band for the T1b rest-height regression guard
+const T5B_RATIO_LO := 0.75          # tilted-launch speed must stay within [0.75, 1.25]x
+const T5B_RATIO_HI := 1.25          # of the flat-pad launch speed (same power, redirected)
+const ASCENT_CHECK_MAX_FRAMES := 90 # cap on how far into the ascent the ballistic check walks
+const MIN_ASCENT_CHECK_FRAMES := 8  # below this the ascent was too short to say anything
+const FLIGHT_TIME_TOL_FRAMES := 3.0 # tolerance for actual vs predicted time-to-peak
 # Magnitude tent curve (ratio of pad peak to normal jump peak). The spec
 # gives no number (v2: "far beyond the highest jump"), so this band is
 # tightened around the original's actual measured ratio (~3.43x) - agents
@@ -69,7 +74,7 @@ func _main() -> void:
 	var flat := await _scenario_flat_pad(jump_peak)
 	await _scenario_fall_parity(flat.get("peak_gentle", -1.0))
 	await _scenario_horizontal_override()
-	await _scenario_tilted_pad()
+	await _scenario_tilted_pad(flat.get("launch_speed", -1.0))
 	var launched: bool = flat.get("launched", false)
 	await _scenario_nonplayer("T10a", "Enemy does not trigger the pad", BEETLE_SCENE, launched)
 	await _scenario_nonplayer("T10b", "Crate does not trigger the pad", CRATE_SCENE, launched)
@@ -248,6 +253,7 @@ func _scenario_flat_pad(jump_peak: float) -> Dictionary:
 			"horizontal speed gained %.2f m/s under held input (need >= %.1f)" % [gained, MC_SPEED_GAIN])
 
 	out["launched"] = launch_f >= 0
+	out["launch_speed"] = vels[launch_f].length() if launch_f >= 0 else -1.0
 
 	# ---- T6/T7/T8: the squash curve ---------------------------------------
 	var squash_occurred := false
@@ -457,21 +463,26 @@ func _scenario_horizontal_override() -> void:
 	_free_arena(arena)
 
 
-## T5 - a 30-degree tilted pad must launch with a horizontal component
-## along its lean direction.
-func _scenario_tilted_pad() -> void:
+## T5a/T5b - a 30-degree tilted pad must launch with a horizontal component
+## along its lean direction (T5a), at a total speed consistent with the
+## flat-pad launch (T5b) - catching implementations that redirect one launch
+## vector (correct) vs. bolting an extra sideways push on top (inconsistent
+## magnitude across orientations).
+func _scenario_tilted_pad(flat_launch_speed: float) -> void:
 	var arena := _make_arena(true, 30.0)
 	var pad: Node3D = arena.pad
 	var player := _spawn_player(arena, pad.global_transform * Vector3(0, 1.4, 0) + Vector3(0, 1.5, 0)) if pad else null
 	if player == null or pad == null:
-		_add("T5", "Launch follows pad orientation", 7, 0, "scene failed to load")
+		_add("T5a", "Launch follows pad orientation", 5, 0, "scene failed to load")
+		_add("T5b", "Tilted launch magnitude matches flat-pad launch", 2, 0, "scene failed to load")
 		_free_arena(arena)
 		return
 
 	var lean := pad.global_transform.basis.y
 	var lean_h := Vector3(lean.x, 0, lean.z)
 	if lean_h.length() < 0.1:
-		_add("T5", "Launch follows pad orientation", 7, 0, "internal: pad not tilted")
+		_add("T5a", "Launch follows pad orientation", 5, 0, "internal: pad not tilted")
+		_add("T5b", "Tilted launch magnitude matches flat-pad launch", 2, 0, "internal: pad not tilted")
 		_free_arena(arena)
 		return
 	lean_h = lean_h.normalized()
@@ -486,11 +497,23 @@ func _scenario_tilted_pad() -> void:
 			break
 
 	if launch_f < 0:
-		_add("T5", "Launch follows pad orientation", 7, 0, "no launch on tilted pad")
+		_add("T5a", "Launch follows pad orientation", 5, 0, "no launch on tilted pad")
+		_add("T5b", "Tilted launch magnitude matches flat-pad launch", 2, 0, "no launch on tilted pad")
 	else:
 		var along := Vector3(launch_vel.x, 0, launch_vel.z).dot(lean_h)
-		_add("T5", "Launch follows pad orientation", 7, 7 if along >= 2.5 else 0,
+		_add("T5a", "Launch follows pad orientation", 5, 5 if along >= 2.5 else 0,
 			"horizontal launch component along lean %.2f m/s (need >= 2.5)" % along)
+
+		if flat_launch_speed <= 0.0:
+			_add("T5b", "Tilted launch magnitude matches flat-pad launch", 2, 0,
+				"prerequisite missing (no flat-pad launch speed to compare against)")
+		else:
+			var tilt_speed := launch_vel.length()
+			var ratio := tilt_speed / flat_launch_speed
+			var ok := ratio >= T5B_RATIO_LO and ratio <= T5B_RATIO_HI
+			_add("T5b", "Tilted launch magnitude matches flat-pad launch", 2, 2 if ok else 0,
+				"tilted launch speed %.2f m/s vs flat launch speed %.2f m/s (ratio %.2fx, need %.2f-%.2fx)"
+				% [tilt_speed, flat_launch_speed, ratio, T5B_RATIO_LO, T5B_RATIO_HI])
 	_free_arena(arena)
 
 
@@ -616,18 +639,36 @@ func _in_pad_zone(player: Node3D, pad: Node3D) -> bool:
 
 
 ## Free flight under the player's own gravity: consecutive per-frame v_y deltas
-## must equal -g*dt. Rejects position-tween "launches". Empty string = pass.
+## must equal -g*dt, checked across the WHOLE ascent (not just a short window
+## right after launch) so an implementation that fakes physics briefly and
+## drifts later doesn't slip through. Also cross-checks that the time it
+## actually took to stop rising matches what the measured launch speed
+## predicts, catching cumulative drift that per-frame tolerance can miss.
+## Rejects position-tween "launches". Empty string = pass.
 func _check_ballistic(vels: Array[Vector3], launch_f: int) -> String:
 	var first := launch_f + 3
-	var last := launch_f + 12
-	if last >= vels.size():
+	if first >= vels.size() - 1:
 		return "flight window too short"
 	if vels[first].y <= 0.0:
 		return "not moving upward at frame %d" % first
-	for i in range(first, last):
+
+	var i := first
+	var checked := 0
+	while i < vels.size() - 1 and vels[i].y > 0.0 and checked < ASCENT_CHECK_MAX_FRAMES:
 		var dvy := vels[i + 1].y - vels[i].y
 		if absf(dvy + PLAYER_GRAVITY * DT) > BALLISTIC_EPS:
 			return "dv_y %.3f at frame %d (expected %.3f +/- %.2f)" % [dvy, i, -PLAYER_GRAVITY * DT, BALLISTIC_EPS]
+		i += 1
+		checked += 1
+	if checked < MIN_ASCENT_CHECK_FRAMES:
+		return "ascent too short to verify (%d frames)" % checked
+
+	if i < vels.size() and vels[i].y <= 0.0:
+		var predicted_frames := vels[first].y / (PLAYER_GRAVITY * DT)
+		var actual_frames := float(i - first)
+		if absf(actual_frames - predicted_frames) > FLIGHT_TIME_TOL_FRAMES:
+			return "time-to-peak %d frames vs predicted %.1f (tolerance +/- %.0f)" \
+				% [int(actual_frames), predicted_frames, FLIGHT_TIME_TOL_FRAMES]
 	return ""
 
 

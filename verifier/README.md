@@ -48,7 +48,8 @@ is >= 60, `1` otherwise; the full per-check JSON report is written to stdout.
 | T3 | Launch magnitude: continuous curve centered on ~3.4x normal jump | 10 |
 | T4a | Launch overrides prior vertical velocity (walk-on vs fall-on parity) | 5 |
 | T4b | Launch overrides prior horizontal velocity (sprint-onto-pad momentum is wiped, not carried) | 3 |
-| T5 | Launch direction follows pad orientation (30-degree tilted pad) | 7 |
+| T5a | Launch direction follows pad orientation (30-degree tilted pad) | 5 |
+| T5b | Tilted launch magnitude matches flat-pad launch (redirected, not additive) | 2 |
 | T-MC | Midair directional control retained after launch | 5 |
 | T10a | Non-player (enemy) does not trigger launch or squash | 5 |
 | T10b | Non-player (crate) does not trigger launch or squash | 5 |
@@ -83,6 +84,23 @@ behavior rather than a spec'd constant):
   sets the squashed scale on the same frame as contact; both known v1
   agent solutions eased the compression over ~6 frames instead of
   snapping, so this sub-check is empirically proven to discriminate).
+
+v1.2 hardening (spec-neutral - both ride on requirements already stated):
+- T4/T5 split: T4a/T5a keep the prior vertical-override and tilt-direction
+  logic; new T4b (3 pts) requires that a player sprinting onto a flat pad
+  does not carry that horizontal momentum through the bounce - the
+  original's launch is a single atomic velocity assignment, which is
+  mathematically zero horizontal for an untilted pad. New T5b (2 pts)
+  requires the tilted-pad launch speed to stay within 0.75-1.25x of the
+  flat-pad launch speed, catching implementations that bolt an extra
+  sideways push onto the usual vertical launch instead of redirecting one
+  vector along the pad's orientation.
+- T2's ballistic check now walks the WHOLE ascent (up to 90 frames, was a
+  fixed 10-frame window right after launch) so an implementation that
+  fakes physics briefly and drifts later doesn't pass, and cross-checks
+  that the actual time-to-peak matches what the measured launch speed
+  predicts (tolerance +/- 3 frames) - catching cumulative drift that
+  per-frame tolerance alone can miss.
 
 Measurement notes:
 - "Visual height" is the world-space vertical extent of the pad's visible
