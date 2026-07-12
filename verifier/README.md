@@ -51,7 +51,7 @@ is >= 60, `1` otherwise; the full per-check JSON report is written to stdout.
 | T-MC | Midair directional control retained after launch | 5 |
 | T10a | Non-player (enemy) does not trigger launch or squash | 5 |
 | T10b | Non-player (crate) does not trigger launch or squash | 5 |
-| T6 | Cap squashes on contact (vertical visual height dips to <= 80%) | 12 |
+| T6 | Cap squashes on contact: depth (8) + instant snap timing (4) | 12 |
 | T7 | Elastic rebound overshoots rest height (>= 2%) after the dip | 15 |
 | T8 | Cap settles back to rest height (+/- 2%) within ~2 s | 7 |
 | T9 | Squash re-triggers on a second bounce | 4 |
@@ -70,6 +70,18 @@ Unscored diagnostics (reported in the JSON, never scored):
   re-trigger implementations stay compressed. Not scored because continuous
   contact cannot occur in normal play - the launch removes the player within a
   few frames - so scoring it would grade implementation, not outcome.
+
+v1.1 hardening (spec v2 no longer states the 3.4x multiplier or squash
+timing, so these bands are tightened around the original's actual measured
+behavior rather than a spec'd constant):
+- T3 magnitude band narrowed to a plateau of [3.2x, 3.65x] (was
+  [3.0x, 3.8x]), zero below 2.6x / above 4.4x (was 2.0x / 5.5x).
+- T6 split into depth (8 pts: full <= 55% of rest, half <= 70%, was a
+  single 80%/90% band) and snap timing (4 pts: full credit only if the
+  dip is reached within 3 frames of contact, half within 7 - the original
+  sets the squashed scale on the same frame as contact; both known v1
+  agent solutions eased the compression over ~6 frames instead of
+  snapping, so this sub-check is empirically proven to discriminate).
 
 Measurement notes:
 - "Visual height" is the world-space vertical extent of the pad's visible

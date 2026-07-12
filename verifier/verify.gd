@@ -31,11 +31,23 @@ const MC_SPEED_GAIN := 1.5          # m/s horizontal gain proving midair control
 const NONPLAYER_VY_MAX := 3.0       # any more upward velocity = it got launched
 const EXPECTED_REST_H := 1.607      # pad rest visual height, measured on original assets
 const REST_H_TOL_RATIO := 0.05      # +/-5% band for the T1b rest-height regression guard
-# Magnitude tent curve (ratio of pad peak to normal jump peak):
-const RATIO_ZERO_LO := 2.0
-const RATIO_FULL_LO := 3.0
-const RATIO_FULL_HI := 3.8
-const RATIO_ZERO_HI := 5.5
+# Magnitude tent curve (ratio of pad peak to normal jump peak). The spec
+# gives no number (v2: "far beyond the highest jump"), so this band is
+# tightened around the original's actual measured ratio (~3.43x) - agents
+# must test/tune their own launch, not transcribe a spec'd constant.
+const RATIO_ZERO_LO := 2.6
+const RATIO_FULL_LO := 3.2
+const RATIO_FULL_HI := 3.65
+const RATIO_ZERO_HI := 4.4
+# Squash-depth band (dip / rest), tightened around the original's ~40% dip.
+const DIP_FULL := 0.55
+const DIP_HALF := 0.70
+# Snap timing: frames from contact to reaching the dip. The original sets
+# the squashed scale on the SAME frame as contact (an instant snap, not an
+# eased compression) - both known v1 agent solutions eased this over ~6
+# frames, so this check is empirically proven to discriminate.
+const SNAP_FULL_FRAMES := 3
+const SNAP_HALF_FRAMES := 7
 
 var _checks: Array = []
 var _meta := {}
@@ -249,13 +261,25 @@ func _scenario_flat_pad(jump_peak: float) -> Dictionary:
 				dip_f = i
 		var dip_ratio := dip_min / rest_h
 		squash_occurred = dip_ratio < 0.95
-		var t6_pts := 0.0
-		if dip_ratio <= 0.80:
-			t6_pts = 12.0
-		elif dip_ratio <= 0.90:
-			t6_pts = 6.0
-		_add("T6", "Cap squashes on contact", 12, t6_pts,
-			"height dipped to %.0f%% of rest (full <= 80%%, half <= 90%%)" % (dip_ratio * 100.0))
+		var snap_latency := dip_f - contact_f
+
+		var depth_pts := 0.0
+		if dip_ratio <= DIP_FULL:
+			depth_pts = 8.0
+		elif dip_ratio <= DIP_HALF:
+			depth_pts = 4.0
+
+		var snap_pts := 0.0
+		if squash_occurred:
+			if snap_latency <= SNAP_FULL_FRAMES:
+				snap_pts = 4.0
+			elif snap_latency <= SNAP_HALF_FRAMES:
+				snap_pts = 2.0
+
+		_add("T6", "Cap squashes on contact (depth + instant snap)", 12, depth_pts + snap_pts,
+			"depth: dipped to %.0f%% of rest (full <= %.0f%%, half <= %.0f%%) [%.1f/8]; snap: reached dip %d frame(s) after contact (full <= %d, half <= %d) [%.1f/4]"
+			% [dip_ratio * 100.0, DIP_FULL * 100.0, DIP_HALF * 100.0, depth_pts,
+			   snap_latency, SNAP_FULL_FRAMES, SNAP_HALF_FRAMES, snap_pts])
 
 		var overshoot := -INF
 		if dip_ratio < 0.95:
