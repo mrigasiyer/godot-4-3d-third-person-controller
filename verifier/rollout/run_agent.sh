@@ -73,6 +73,12 @@ case "$AGENT" in
     opencode run --model openrouter/google/gemini-3-flash-preview "$PROMPT" \
       > "$LOG" 2>&1
     ;;
+  gpt55)
+    echo "harness: opencode $(opencode --version 2>/dev/null | head -1)" >> "$META"
+    echo "model: openrouter/openai/gpt-5.5" >> "$META"
+    opencode run --model openrouter/openai/gpt-5.5 "$PROMPT" \
+      > "$LOG" 2>&1
+    ;;
   minimax)
     echo "harness: opencode $(opencode --version 2>/dev/null | head -1)" >> "$META"
     echo "model: openrouter/minimax/minimax-m3" >> "$META"
