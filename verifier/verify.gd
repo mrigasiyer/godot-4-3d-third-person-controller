@@ -435,10 +435,11 @@ func _scenario_nonplayer(id: String, label: String, scene_path: String, has_laun
 		_add(id, label, 5, 0, "scene failed to load: " + scene_path)
 		_free_arena(arena)
 		return
-	arena.root.add_child(body)
 	# Spawn overlapping the pad's trigger volume so contact is guaranteed
 	# even for bodies that don't fall (e.g. zero gravity scale).
-	body.global_position = Vector3(0, 0.9, 0)
+	# Positioned before add_child (same spawn-ordering rule as the player).
+	body.position = Vector3(0, 0.9, 0)
+	arena.root.add_child(body)
 
 	await physics_frame
 	var rest_h := _pad_visual_height(pad)
@@ -501,8 +502,10 @@ func _spawn_player(arena: Dictionary, spawn: Vector3) -> CharacterBody3D:
 	if scene == null:
 		return null
 	var player: CharacterBody3D = scene.instantiate()
+	# Position BEFORE entering the tree: adding first would let the player
+	# exist at the origin - inside the pad - for one instant, triggering it.
+	player.position = spawn
 	arena.root.add_child(player)
-	player.global_position = spawn
 	return player
 
 
