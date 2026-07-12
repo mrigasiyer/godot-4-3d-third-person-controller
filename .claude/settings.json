@@ -1,0 +1,11 @@
+{
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "allow": ["mcp__godot__*", "Bash", "Read", "Edit", "Write", "Glob", "Grep", "TodoWrite"],
+    "deny": [
+      "WebFetch", "WebSearch",
+      "Bash(curl:*)", "Bash(wget:*)",
+      "Bash(git clone:*)", "Bash(git fetch:*)", "Bash(git pull:*)", "Bash(git remote:*)"
+    ]
+  }
+}
