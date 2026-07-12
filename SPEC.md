@@ -13,11 +13,11 @@ behavior so it fits naturally with the rest of the game.
 
 When a player character steps on, lands on, or makes contact with the pad:
 
-1. **It launches the player character upward.** The character is instantly propelled into the air, as if off a springboard. This happens the moment they make physical contact. The launch should be a real physics response, not a scripted position animation. The launch must interact naturally with the world's gravity and momentum. It should throw the player dynamically, allowing them to retain their forward movement and bump into ceilings/walls.
+1. **It launches the player character upward.** The character is instantly propelled into the air, as if off a springboard. This happens the moment they make physical contact. The launch should be a real physics response, not a scripted position animation. Real collisions like bouncing into a ceiling or wall mid-air still happen naturally.
 
 2. **The launch is powerful — far stronger than a normal jump.** The pad should send the character far beyond the highest jump the character could normally manage.
 
-3. **Regardless of the player's vertical speed at the moment of contact — walking onto it, or landing on it after a fall — the pad should send them to the same height each time.** Furthermore, the player must maintain their normal midair directional movement capabilities during the jump.
+3. **Regardless of how the player was moving at the moment of contact — walking onto it, sprinting into it, or landing on it after a fall — the pad sends them to the same result every time; whatever momentum they already had doesn't carry through the bounce.** Furthermore, the player must maintain their midair directional movement capabilities during the jump.
 
 4.**The jump pad launches the character in the direction its surface faces.** A pad resting flat on the ground launches the player straight up into the air. A pad that is placed on a tilted slope should launch the player up and outward.
 
