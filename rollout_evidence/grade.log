@@ -1,0 +1,151 @@
+Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
+
+=== JUMPPAD VERIFIER REPORT ===
+{
+  "checks": [
+    {
+      "detail": "normal jump peak 2.30 m (expected 2.30 +/- 0.30)",
+      "id": "T1a",
+      "max": 3.0,
+      "name": "Jump-height regression guard",
+      "passed": true,
+      "points": 3.0
+    },
+    {
+      "detail": "rest height 1.607 m (expected 1.607 +/- 5%)",
+      "id": "T1b",
+      "max": 2.0,
+      "name": "Pad rest-height regression guard",
+      "passed": true,
+      "points": 2.0
+    },
+    {
+      "detail": "launched 2 frame(s) after contact; ballistic flight verified",
+      "id": "T2",
+      "max": 15.0,
+      "name": "Instant real-physics launch on contact",
+      "passed": true,
+      "points": 15.0
+    },
+    {
+      "detail": "pad peak 12.83 m / jump 2.30 m = 5.58x",
+      "id": "T3",
+      "max": 10.0,
+      "name": "Launch magnitude ~3.4x normal jump",
+      "passed": false,
+      "points": 0.0
+    },
+    {
+      "detail": "horizontal speed gained 7.03 m/s under held input (need >= 1.5)",
+      "id": "TMC",
+      "max": 5.0,
+      "name": "Midair control retained",
+      "passed": true,
+      "points": 5.0
+    },
+    {
+      "detail": "depth: dipped to 57% of rest (full <= 55%, half <= 70%) [4.0/8]; snap: reached dip 5 frame(s) after contact (full <= 3, half <= 7) [2.0/4]",
+      "id": "T6",
+      "max": 12.0,
+      "name": "Cap squashes on contact (depth + instant snap)",
+      "passed": false,
+      "points": 6.0
+    },
+    {
+      "detail": "post-dip max height 116.1% of rest (need >= 102%)",
+      "id": "T7",
+      "max": 15.0,
+      "name": "Elastic rebound overshoots rest height",
+      "passed": true,
+      "points": 15.0
+    },
+    {
+      "detail": "worst deviation in settle window 0.0% (limit 2%)",
+      "id": "T8",
+      "max": 7.0,
+      "name": "Cap settles back to rest within ~2 s",
+      "passed": true,
+      "points": 7.0
+    },
+    {
+      "detail": "second dip to 57% of rest (need <= 90%)",
+      "id": "T9",
+      "max": 4.0,
+      "name": "Squash re-triggers on second bounce",
+      "passed": true,
+      "points": 4.0
+    },
+    {
+      "detail": "untouched pad's height deviated 0.0% from its rest (limit 2%)",
+      "id": "T11",
+      "max": 2.0,
+      "name": "Pad instances have independent state",
+      "passed": true,
+      "points": 2.0
+    },
+    {
+      "detail": "gentle-drop peak 12.83 m vs high-fall peak 12.83 m (mismatch 0%, limit 10%)",
+      "id": "T4a",
+      "max": 5.0,
+      "name": "Launch overrides prior vertical velocity",
+      "passed": true,
+      "points": 5.0
+    },
+    {
+      "detail": "horizontal speed at launch 0.00 m/s from a 8.0 m/s run-up (need <= 2.5)",
+      "id": "T4b",
+      "max": 3.0,
+      "name": "Launch overrides prior horizontal velocity",
+      "passed": true,
+      "points": 3.0
+    },
+    {
+      "detail": "horizontal launch component along lean 14.00 m/s (need >= 2.5)",
+      "id": "T5a",
+      "max": 5.0,
+      "name": "Launch follows pad orientation",
+      "passed": true,
+      "points": 5.0
+    },
+    {
+      "detail": "tilted launch speed 28.00 m/s vs flat launch speed 28.00 m/s (ratio 1.00x, need 0.75-1.25x)",
+      "id": "T5b",
+      "max": 2.0,
+      "name": "Tilted launch magnitude matches flat-pad launch",
+      "passed": true,
+      "points": 2.0
+    },
+    {
+      "detail": "max upward velocity 0.00 m/s (limit 3.0); pad min height 100% of rest (limit 95%)",
+      "id": "T10a",
+      "max": 5.0,
+      "name": "Enemy does not trigger the pad",
+      "passed": true,
+      "points": 5.0
+    },
+    {
+      "detail": "max upward velocity 0.00 m/s (limit 3.0); pad min height 100% of rest (limit 95%)",
+      "id": "T10b",
+      "max": 5.0,
+      "name": "Crate does not trigger the pad",
+      "passed": true,
+      "points": 5.0
+    }
+  ],
+  "diagnostics": [
+    {
+      "detail": "cap compressed for 0% of a 2 s pinned-contact window; event-driven implementations recover to rest (~0%), per-frame re-trigger implementations stay compressed (~100%).",
+      "id": "NEG06",
+      "name": "Continuous-overlap behavior (unscored)"
+    }
+  ],
+  "godot": "4.6.3-stable (official)",
+  "max_score": 100,
+  "meta": {
+    "jump_peak_m": 2.3,
+    "pad_rest_height_m": 1.607
+  },
+  "score": 84.0,
+  "task": "jumping-pad"
+}
+=== SCORE: 84.0 / 100 ===
