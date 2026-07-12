@@ -87,7 +87,21 @@ EOF
 #    (Codex reads MCP servers from global ~/.codex/config.toml - one-time
 #     setup, see codex_mcp_snippet.toml next to this script.)
 
-# 4. Pre-import assets so no agent wastes effort on import friction
+# 4. Register the run dir as a trusted Claude Code workspace, else the
+#    snapshot's permissions.allow entries are ignored in -p mode.
+#    (One backup of ~/.claude.json is kept the first time we touch it.)
+[ -f "$HOME/.claude.json.rollout-backup" ] || cp "$HOME/.claude.json" "$HOME/.claude.json.rollout-backup"
+RUN_DIR="$RUN_DIR" python3 - <<'PY'
+import json, os
+path = os.path.expanduser("~/.claude.json")
+data = json.load(open(path))
+entry = data.setdefault("projects", {}).setdefault(os.environ["RUN_DIR"], {})
+entry["hasTrustDialogAccepted"] = True
+json.dump(data, open(path, "w"), indent=2)
+print("trusted workspace:", os.environ["RUN_DIR"])
+PY
+
+# 5. Pre-import assets so no agent wastes effort on import friction
 "$GODOT" --headless --path "$RUN_DIR" --import >/dev/null 2>&1 || true
 
 echo "READY: $RUN_DIR"
