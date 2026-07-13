@@ -44,12 +44,12 @@ is >= 60, `1` otherwise; the full per-check JSON report is written to stdout.
 |---|---|---|
 | T1a | Regression guard: normal jump height matches original | 3 |
 | T1b | Regression guard: pad's idle rest geometry matches original | 2 |
-| T2 | Instant, real-physics launch on flat-pad contact (ballistic assertion) | 15 |
+| T2 | Latency (continuous, 7) + real-physics gate (binary, 4) + time-to-peak precision (continuous, 4) | 15 |
 | T3 | Launch magnitude: continuous curve peaked at ~3.43x normal jump, no flat bands | 10 |
-| T4a | Launch overrides prior vertical velocity (walk-on vs fall-on parity) | 5 |
-| T4b | Launch overrides prior horizontal velocity (sprint-onto-pad momentum is wiped, not carried) | 3 |
-| T5a | Launch direction follows pad orientation (30-degree tilted pad) | 5 |
-| T5b | Tilted launch magnitude matches flat-pad launch (redirected, not additive) | 2 |
+| T4a | Vertical-override mismatch: continuous, full credit near 0%, zero by 35% | 5 |
+| T4b | Horizontal-override residual speed: continuous, full credit near 0, zero by 8 m/s | 3 |
+| T5a | Tilt-direction along-lean push: ramps to full credit at the original's ~5.00 m/s | 5 |
+| T5b | Tilted launch magnitude matches flat-pad launch: continuous, peaked at ratio 1.0 | 2 |
 | T-MC | Midair directional control retained after launch | 5 |
 | T10a | Non-player (enemy) does not trigger launch or squash | 5 |
 | T10b | Non-player (crate) does not trigger launch or squash | 5 |
@@ -115,6 +115,29 @@ v1.2 hardening (spec-neutral - both ride on requirements already stated):
   that the actual time-to-peak matches what the measured launch speed
   predicts (tolerance +/- 3 frames) - catching cumulative drift that
   per-frame tolerance alone can miss.
+
+v1.4 hardening: continuous scoring extended to T2, T4a, T4b, T5a, T5b, using
+whichever shape actually matches the underlying measurement rather than one
+pattern forced everywhere:
+- T2 split into three parts: latency (7 pts, zero-decay, full credit within
+  2 frames of contact - matches the original) + a real-physics gate (4 pts,
+  kept binary on purpose - whether gravity genuinely governs the motion vs.
+  a scripted tween is categorical, exactly what defeats the position-tween
+  probe) + time-to-peak precision (4 pts, zero-decay, only scored once the
+  gate passes - how closely the observed flight time matches what the
+  measured launch speed predicts).
+- T4a (5 pts) and T4b (3 pts): zero-decay on override mismatch / residual
+  speed - both are naturally >=0 with an ideal of exactly 0 (the original
+  measures ~0% mismatch and 0.00 m/s residual respectively).
+- T5a (5 pts): ramp-to-target, not peak-decay - full credit is reached at
+  the original's measured along-lean push (~5.00 m/s) and stays full beyond
+  it, since more push in the right direction isn't wrong on its own (overall
+  magnitude is T5b's job).
+- T5b (2 pts): peak-decay around ratio 1.0 (perfect tilted/flat consistency),
+  replacing the old binary [0.75x, 1.25x] band.
+- Left binary on purpose: T1a/T1b (regression guards), T9/T10a/T10b/T11 (bug
+  presence is categorical, not a judgment call), T-MC (every run so far -
+  original included - lands on ~the same value; no real spread to measure).
 
 Measurement notes:
 - "Visual height" is the world-space vertical extent of the pad's visible

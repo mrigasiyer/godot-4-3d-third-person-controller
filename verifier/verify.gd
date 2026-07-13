@@ -30,14 +30,51 @@ const BALLISTIC_EPS := 0.15        # |dv_y - (-g*dt)| tolerance per frame
 const MC_SPEED_GAIN := 1.5          # m/s horizontal gain proving midair control
 const NONPLAYER_VY_MAX := 3.0       # any more upward velocity = it got launched
 const RUN_SPEED := 8.0              # matches player.gd's move_speed default
-const HV_WIPE_MAX := 2.5            # m/s horizontal speed post-launch that still counts as "wiped"
 const EXPECTED_REST_H := 1.607      # pad rest visual height, measured on original assets
 const REST_H_TOL_RATIO := 0.05      # +/-5% band for the T1b rest-height regression guard
-const T5B_RATIO_LO := 0.75          # tilted-launch speed must stay within [0.75, 1.25]x
-const T5B_RATIO_HI := 1.25          # of the flat-pad launch speed (same power, redirected)
+## v1.4 hardening: continuous scoring extended to every check that measures a
+## real precision spectrum (a "distance from the original's exact value" or
+## "distance from zero" quantity). Three distinct shapes, chosen by what the
+## underlying measurement actually looks like - not one pattern forced
+## everywhere:
+##   - zero-decay: full credit near 0, decaying to 0 by some threshold. Used
+##     for anything that's naturally >=0 with an ideal of exactly 0 (override
+##     mismatch, residual velocity, timing deviation, settle deviation).
+##   - ramp-to-target: 0 credit at 0, ramping up to full credit at the
+##     original's measured value, then staying full beyond it. Used where
+##     "too little" is a real failure but "too much" isn't inherently wrong
+##     (a magnitude dimension already covered by a separate check).
+##   - peak-decay: full credit at the original's measured value, decaying on
+##     BOTH sides. Used for true ratios where over- and under-shooting are
+##     both real, distinct failure modes (T3's magnitude, T7's overshoot,
+##     T5b's tilt-consistency ratio).
+## Left binary on purpose: T1a/T1b (regression guards - broke it or didn't),
+## T2's physics-realism gate (real physics or a scripted fake - categorical),
+## T9/T10a/T10b/T11 (bug presence, not a judgment call), T-MC (every run so
+## far - original included - lands on ~the same value; no real spread to
+## differentiate).
+
+# T4a: vertical-override mismatch - zero-decay (original measures ~0%)
+const T4A_MISMATCH_TOL := 0.02
+const T4A_MISMATCH_ZERO_AT := 0.35
+# T4b: horizontal-override residual speed - zero-decay (original measures 0.00 m/s)
+const T4B_RESIDUAL_TOL := 0.5
+const T4B_RESIDUAL_ZERO_AT := 8.0   # matches RUN_SPEED - full residual = total failure
+# T5a: tilt-direction along-lean push - ramp-to-target (original measures ~5.00 m/s)
+const T5A_TARGET := 5.0
+# T5b: tilt-magnitude consistency ratio - peak-decay around 1.0 (perfect consistency)
+const T5B_PEAK := 1.0
+const T5B_PEAK_TOL := 0.05
+const T5B_ZERO_LO := 0.4
+const T5B_ZERO_HI := 2.0
+# T2 latency - zero-decay from a low frame count (original measures 2 frames);
+# zero point reuses CONTACT_GRACE_FRAMES below.
+const T2_LATENCY_TOL := 2.0
+# T2 flight-time precision (only scored if the physics-realism gate passes)
+const T2_TIME_TOL := 1.0
+const T2_TIME_ZERO_AT := 6.0
 const ASCENT_CHECK_MAX_FRAMES := 90 # cap on how far into the ascent the ballistic check walks
 const MIN_ASCENT_CHECK_FRAMES := 8  # below this the ascent was too short to say anything
-const FLIGHT_TIME_TOL_FRAMES := 3.0 # tolerance for actual vs predicted time-to-peak
 # Magnitude scoring curve (ratio of pad peak to normal jump peak). The spec
 # gives no number (v2: "far beyond the highest jump"), so full credit centers
 # on the original's actual measured ratio (~3.43x) and every ratio away from
@@ -225,17 +262,25 @@ func _scenario_flat_pad(jump_peak: float) -> Dictionary:
 		t2_detail = "no upward launch detected (max v_y %.2f)" % _max_vy(vels)
 	else:
 		var latency := launch_f - contact_f
-		if latency >= 0 and latency <= CONTACT_GRACE_FRAMES:
-			t2_pts += 7.0
-			t2_detail = "launched %d frame(s) after contact" % latency
+		if latency >= 0:
+			var latency_pts := _zero_decay_score(float(latency), T2_LATENCY_TOL, float(CONTACT_GRACE_FRAMES)) * 7.0
+			t2_pts += latency_pts
+			t2_detail = "launched %d frame(s) after contact (full credit <= %d) [%.1f/7]" % [latency, int(T2_LATENCY_TOL), latency_pts]
 		else:
-			t2_detail = "launch latency %d frames (limit %d)" % [latency, CONTACT_GRACE_FRAMES]
+			t2_detail = "launch preceded contact somehow (frame %d)" % latency
 		var ballistic := _check_ballistic(vels, launch_f)
-		if ballistic == "":
-			t2_pts += 8.0
-			t2_detail += "; ballistic flight verified"
+		if ballistic.gate_ok:
+			t2_pts += 4.0
+			t2_detail += "; real physics verified [4.0/4]"
+			if ballistic.time_mismatch_valid:
+				var time_pts := _zero_decay_score(ballistic.time_mismatch_frames, T2_TIME_TOL, T2_TIME_ZERO_AT) * 4.0
+				t2_pts += time_pts
+				t2_detail += "; time-to-peak off by %.1f frames (full credit <= %.0f) [%.1f/4]" \
+					% [ballistic.time_mismatch_frames, T2_TIME_TOL, time_pts]
+			else:
+				t2_detail += "; time-to-peak not observed within window [0.0/4]"
 		else:
-			t2_detail += "; ballistic check failed: " + ballistic
+			t2_detail += "; not real physics: " + ballistic.gate_error + " [0.0/4, 0.0/4]"
 	_add("T2", "Instant real-physics launch on contact", 15, t2_pts, t2_detail)
 
 	# ---- T3: launch magnitude (continuous tent around ~3.4x) -------------
@@ -426,10 +471,10 @@ func _scenario_fall_parity(peak_gentle: float) -> void:
 			top = maxf(top, ys[i])
 		var peak_fall := top - ys[launch_f]
 		var mismatch := absf(peak_fall - peak_gentle) / maxf(peak_fall, peak_gentle)
-		_add("T4a", "Launch overrides prior vertical velocity", 5,
-			5 if mismatch <= 0.10 else 0,
-			"gentle-drop peak %.2f m vs high-fall peak %.2f m (mismatch %.0f%%, limit 10%%)"
-			% [peak_gentle, peak_fall, mismatch * 100.0])
+		var t4a_pts := _zero_decay_score(mismatch, T4A_MISMATCH_TOL, T4A_MISMATCH_ZERO_AT) * 5.0
+		_add("T4a", "Launch overrides prior vertical velocity", 5, t4a_pts,
+			"gentle-drop peak %.2f m vs high-fall peak %.2f m (mismatch %.0f%%, full credit <= %.0f%%)"
+			% [peak_gentle, peak_fall, mismatch * 100.0, T4A_MISMATCH_TOL * 100.0])
 	_free_arena(arena)
 
 
@@ -473,10 +518,10 @@ func _scenario_horizontal_override() -> void:
 	if launch_f < 0:
 		_add("T4b", "Launch overrides prior horizontal velocity", 3, 0, "no launch reached")
 	else:
-		_add("T4b", "Launch overrides prior horizontal velocity", 3,
-			3 if hv_at_launch <= HV_WIPE_MAX else 0,
-			"horizontal speed at launch %.2f m/s from a %.1f m/s run-up (need <= %.1f)"
-			% [hv_at_launch, RUN_SPEED, HV_WIPE_MAX])
+		var t4b_pts := _zero_decay_score(hv_at_launch, T4B_RESIDUAL_TOL, T4B_RESIDUAL_ZERO_AT) * 3.0
+		_add("T4b", "Launch overrides prior horizontal velocity", 3, t4b_pts,
+			"horizontal speed at launch %.2f m/s from a %.1f m/s run-up (full credit <= %.1f)"
+			% [hv_at_launch, RUN_SPEED, T4B_RESIDUAL_TOL])
 	_free_arena(arena)
 
 
@@ -518,8 +563,9 @@ func _scenario_tilted_pad(flat_launch_speed: float) -> void:
 		_add("T5b", "Tilted launch magnitude matches flat-pad launch", 2, 0, "no launch on tilted pad")
 	else:
 		var along := Vector3(launch_vel.x, 0, launch_vel.z).dot(lean_h)
-		_add("T5a", "Launch follows pad orientation", 5, 5 if along >= 2.5 else 0,
-			"horizontal launch component along lean %.2f m/s (need >= 2.5)" % along)
+		var t5a_pts := _ramp_to_target_score(along, T5A_TARGET) * 5.0
+		_add("T5a", "Launch follows pad orientation", 5, t5a_pts,
+			"horizontal launch component along lean %.2f m/s (full credit at >= %.2f)" % [along, T5A_TARGET])
 
 		if flat_launch_speed <= 0.0:
 			_add("T5b", "Tilted launch magnitude matches flat-pad launch", 2, 0,
@@ -527,10 +573,10 @@ func _scenario_tilted_pad(flat_launch_speed: float) -> void:
 		else:
 			var tilt_speed := launch_vel.length()
 			var ratio := tilt_speed / flat_launch_speed
-			var ok := ratio >= T5B_RATIO_LO and ratio <= T5B_RATIO_HI
-			_add("T5b", "Tilted launch magnitude matches flat-pad launch", 2, 2 if ok else 0,
-				"tilted launch speed %.2f m/s vs flat launch speed %.2f m/s (ratio %.2fx, need %.2f-%.2fx)"
-				% [tilt_speed, flat_launch_speed, ratio, T5B_RATIO_LO, T5B_RATIO_HI])
+			var t5b_pts := _ratio_peak_decay_score(ratio, T5B_PEAK, T5B_PEAK_TOL, T5B_ZERO_LO, T5B_ZERO_HI) * 2.0
+			_add("T5b", "Tilted launch magnitude matches flat-pad launch", 2, t5b_pts,
+				"tilted launch speed %.2f m/s vs flat launch speed %.2f m/s (ratio %.2fx, peak credit at %.2fx)"
+				% [tilt_speed, flat_launch_speed, ratio, T5B_PEAK])
 	_free_arena(arena)
 
 
@@ -658,35 +704,42 @@ func _in_pad_zone(player: Node3D, pad: Node3D) -> bool:
 ## Free flight under the player's own gravity: consecutive per-frame v_y deltas
 ## must equal -g*dt, checked across the WHOLE ascent (not just a short window
 ## right after launch) so an implementation that fakes physics briefly and
-## drifts later doesn't slip through. Also cross-checks that the time it
-## actually took to stop rising matches what the measured launch speed
-## predicts, catching cumulative drift that per-frame tolerance can miss.
-## Rejects position-tween "launches". Empty string = pass.
-func _check_ballistic(vels: Array[Vector3], launch_f: int) -> String:
+## drifts later doesn't slip through. Rejects position-tween "launches".
+## Returns a dict: gate_ok/gate_error (binary - is this real physics at all,
+## a categorical question) and time_mismatch_frames/time_mismatch_valid
+## (continuous - only meaningful once the gate passes, how precisely the
+## observed time-to-peak matches what the measured launch speed predicts).
+func _check_ballistic(vels: Array[Vector3], launch_f: int) -> Dictionary:
+	var result := {"gate_ok": false, "gate_error": "", "time_mismatch_valid": false, "time_mismatch_frames": 0.0}
 	var first := launch_f + 3
 	if first >= vels.size() - 1:
-		return "flight window too short"
+		result.gate_error = "flight window too short"
+		return result
 	if vels[first].y <= 0.0:
-		return "not moving upward at frame %d" % first
+		result.gate_error = "not moving upward at frame %d" % first
+		return result
 
 	var i := first
 	var checked := 0
 	while i < vels.size() - 1 and vels[i].y > 0.0 and checked < ASCENT_CHECK_MAX_FRAMES:
 		var dvy := vels[i + 1].y - vels[i].y
 		if absf(dvy + PLAYER_GRAVITY * DT) > BALLISTIC_EPS:
-			return "dv_y %.3f at frame %d (expected %.3f +/- %.2f)" % [dvy, i, -PLAYER_GRAVITY * DT, BALLISTIC_EPS]
+			result.gate_error = "dv_y %.3f at frame %d (expected %.3f +/- %.2f)" \
+				% [dvy, i, -PLAYER_GRAVITY * DT, BALLISTIC_EPS]
+			return result
 		i += 1
 		checked += 1
 	if checked < MIN_ASCENT_CHECK_FRAMES:
-		return "ascent too short to verify (%d frames)" % checked
+		result.gate_error = "ascent too short to verify (%d frames)" % checked
+		return result
 
+	result.gate_ok = true
 	if i < vels.size() and vels[i].y <= 0.0:
 		var predicted_frames := vels[first].y / (PLAYER_GRAVITY * DT)
 		var actual_frames := float(i - first)
-		if absf(actual_frames - predicted_frames) > FLIGHT_TIME_TOL_FRAMES:
-			return "time-to-peak %d frames vs predicted %.1f (tolerance +/- %.0f)" \
-				% [int(actual_frames), predicted_frames, FLIGHT_TIME_TOL_FRAMES]
-	return ""
+		result.time_mismatch_valid = true
+		result.time_mismatch_frames = absf(actual_frames - predicted_frames)
+	return result
 
 
 func _hspeed(v: Vector3) -> float:
@@ -737,6 +790,44 @@ func _settle_score(deviation: float) -> float:
 	if deviation >= SETTLE_ZERO_AT:
 		return 0.0
 	return 1.0 - (deviation - SETTLE_TOL) / (SETTLE_ZERO_AT - SETTLE_TOL)
+
+
+## Generic zero-decay: full credit within TOL of 0, ramping to 0 by ZERO_AT.
+## For any "distance from a perfect zero" measurement (override mismatch,
+## residual velocity, timing deviation). Value must be >= 0.
+func _zero_decay_score(value: float, tol: float, zero_at: float) -> float:
+	if value <= tol:
+		return 1.0
+	if value >= zero_at:
+		return 0.0
+	return 1.0 - (value - tol) / (zero_at - tol)
+
+
+## Ramps from 0 credit (no push at all) up to full credit at TARGET, then
+## stays full beyond it - used where "too little" is a real failure but
+## "too much" isn't inherently wrong (magnitude is a separate check's job).
+func _ramp_to_target_score(value: float, target: float) -> float:
+	if value <= 0.0:
+		return 0.0
+	if value >= target:
+		return 1.0
+	return value / target
+
+
+## Generic asymmetric-peak shape (parameterized twin of _tent_score /
+## _overshoot_score): full credit within TOL of PEAK, decaying linearly to 0
+## at ZERO_LO (below) and ZERO_HI (above). For ratios with real failure
+## modes on both sides.
+func _ratio_peak_decay_score(ratio: float, peak: float, tol: float, zero_lo: float, zero_hi: float) -> float:
+	if absf(ratio - peak) <= tol:
+		return 1.0
+	if ratio < peak:
+		if ratio <= zero_lo:
+			return 0.0
+		return (ratio - zero_lo) / (peak - tol - zero_lo)
+	if ratio >= zero_hi:
+		return 0.0
+	return 1.0 - (ratio - peak - tol) / (zero_hi - peak - tol)
 
 
 func _add(id: String, name: String, max_pts: float, pts: float, detail: String) -> void:
