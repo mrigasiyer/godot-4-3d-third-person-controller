@@ -3,6 +3,14 @@
 Headless, deterministic grader for the jumping-pad task. Scores an attempt out
 of **100** across 12 sub-checks (see rubric below) and prints a JSON report.
 
+## Writeup
+
+The full writeup with charts and gameplay clips is at
+[`writeup/report.html`](writeup/report.html). Its video clips are loaded via
+relative paths, so **clone the repo and check out this `verifier` branch, then
+open `report.html` from disk** — downloading that file on its own (e.g. via a
+"raw" link) will leave the clips broken.
+
 ## Exact command
 
 ```sh
