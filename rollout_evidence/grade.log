@@ -20,7 +20,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 2.0
     },
     {
-      "detail": "launched 2 frame(s) after contact; ballistic flight verified",
+      "detail": "launched 2 frame(s) after contact (full credit <= 2) [7.0/7]; real physics verified [4.0/4]; time-to-peak off by 0.0 frames (full credit <= 1) [4.0/4]",
       "id": "T2",
       "max": 15.0,
       "name": "Instant real-physics launch on contact",
@@ -84,7 +84,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 2.0
     },
     {
-      "detail": "gentle-drop peak 14.75 m vs high-fall peak 14.75 m (mismatch 0%, limit 10%)",
+      "detail": "gentle-drop peak 14.75 m vs high-fall peak 14.75 m (mismatch 0%, full credit <= 2%)",
       "id": "T4a",
       "max": 5.0,
       "name": "Launch overrides prior vertical velocity",
@@ -92,7 +92,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 5.0
     },
     {
-      "detail": "horizontal speed at launch 0.00 m/s from a 8.0 m/s run-up (need <= 2.5)",
+      "detail": "horizontal speed at launch 0.00 m/s from a 8.0 m/s run-up (full credit <= 0.5)",
       "id": "T4b",
       "max": 3.0,
       "name": "Launch overrides prior horizontal velocity",
@@ -100,7 +100,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 3.0
     },
     {
-      "detail": "horizontal launch component along lean 15.00 m/s (need >= 2.5)",
+      "detail": "horizontal launch component along lean 15.00 m/s (full credit at >= 5.00)",
       "id": "T5a",
       "max": 5.0,
       "name": "Launch follows pad orientation",
@@ -108,7 +108,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 5.0
     },
     {
-      "detail": "tilted launch speed 30.00 m/s vs flat launch speed 30.00 m/s (ratio 1.00x, need 0.75-1.25x)",
+      "detail": "tilted launch speed 30.00 m/s vs flat launch speed 30.00 m/s (ratio 1.00x, peak credit at 1.00x)",
       "id": "T5b",
       "max": 2.0,
       "name": "Tilted launch magnitude matches flat-pad launch",
