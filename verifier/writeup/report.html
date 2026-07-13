@@ -1,0 +1,755 @@
+<title>Jumping Pad Eval — Verifier Design &amp; Agent Results</title>
+<style>
+  :root {
+    --bg: #0E1520;
+    --surface: #16202E;
+    --surface-2: #1E2A3B;
+    --ink: #E7EDF5;
+    --muted: #8A97AA;
+    --muted-2: #5E6B7E;
+    --accent: #4FC7E8;
+    --accent-dim: #2C6E85;
+    --good: #6FCF97;
+    --warn: #F0B860;
+    --bad: #E8695C;
+    --line: #263449;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --serif: ui-serif, "New York", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F6F9;
+    --surface: #FFFFFF;
+    --surface-2: #EAEFF5;
+    --ink: #131A24;
+    --muted: #5B6675;
+    --muted-2: #8B96A5;
+    --accent: #0E86A8;
+    --accent-dim: #BFE6F0;
+    --good: #1F8A54;
+    --warn: #A66A16;
+    --bad: #B23A2E;
+    --line: #DCE3EC;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #F4F6F9;
+      --surface: #FFFFFF;
+      --surface-2: #EAEFF5;
+      --ink: #131A24;
+      --muted: #5B6675;
+      --muted-2: #8B96A5;
+      --accent: #0E86A8;
+      --accent-dim: #BFE6F0;
+      --good: #1F8A54;
+      --warn: #A66A16;
+      --bad: #B23A2E;
+      --line: #DCE3EC;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 17.5px/1.65 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--accent-dim); color: var(--ink); }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 64px 40px 120px; }
+  @media (max-width: 700px) { .wrap { padding: 40px 20px 80px; } }
+
+  /* ---- type ---- */
+  .kicker {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 44px;
+    line-height: 1.16;
+    letter-spacing: -0.005em;
+    margin: 12px 0 16px;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: 20px;
+    max-width: 84ch;
+    margin: 0 0 8px;
+  }
+  h2 {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 64px 0 4px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+  h2 .n {
+    color: var(--muted-2);
+    margin-right: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  h2 .title {
+    display: block;
+    font-family: var(--serif);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--ink);
+    margin-top: 8px;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--sans);
+    font-size: 17px;
+    font-weight: 650;
+    margin: 28px 0 8px;
+  }
+  p { margin: 12px 0; max-width: 90ch; }
+  .prose p { color: var(--ink); }
+  a { color: var(--accent); text-decoration-color: var(--accent-dim); }
+  a:hover { text-decoration-thickness: 2px; }
+  code, .mono {
+    font-family: var(--mono);
+    font-size: 0.92em;
+  }
+  code {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1.5px 6px;
+    color: var(--ink);
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---- top stat strip ---- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 28px 0 8px;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 16px 18px;
+  }
+  .stat .k {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .stat .v {
+    font-family: var(--mono);
+    font-size: 22px;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ---- generic panel/card ---- */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 18px 0;
+  }
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 20px;
+    margin: 18px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.good { border-left-color: var(--good); }
+  .callout b { color: var(--ink); }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---- agent quote: a compact chat-bubble, one line, from the agent's own output ---- */
+  .agent-quote {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 24px 0;
+    max-width: 560px;
+  }
+  .agent-quote .avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(150deg, var(--accent), var(--accent-dim));
+    color: var(--bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 14px;
+    flex: none;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent),
+                0 6px 18px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+  .agent-quote .bubble {
+    position: relative;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px 14px 14px 14px;
+    padding: 12px 16px;
+  }
+  .agent-quote .bubble::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -7px;
+    width: 12px; height: 12px;
+    background: var(--surface-2);
+    border-left: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    clip-path: polygon(100% 0, 0 0, 100% 100%);
+  }
+  .agent-quote .bubble .line {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+  .agent-quote .bubble .signed {
+    display: block;
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+  }
+
+  /* ---- tables ---- */
+  .table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 480px; }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+  th {
+    background: var(--surface-2);
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.num, th.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+  tbody tr:hover { background: var(--surface-2); }
+
+  /* ---- pills / semantic state ---- */
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+  .pill.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); }
+  .pill.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+  .pill.bad  { color: var(--bad);  border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+
+  /* ---- charts ---- */
+  .chart-block { margin: 20px 0 8px; }
+  .chart-caption {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  svg.chart { width: 100%; height: auto; display: block; }
+  .chart text { fill: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .chart .agent-label { fill: var(--ink); font-size: 13px; }
+  .chart .avg-label { fill: var(--accent); font-size: 12.5px; font-weight: 600; }
+  .chart .grid { stroke: var(--line); stroke-width: 1; }
+  .chart .spread-line { stroke: var(--muted-2); stroke-width: 2; }
+  .chart .spread-cap { stroke: var(--muted-2); stroke-width: 2; }
+  .chart .avg-dot { fill: var(--accent); }
+  .chart .axis-label { font-size: 11.5px; }
+  .chart .col-label { fill: var(--ink); font-size: 12.5px; }
+  .chart .cell-label { fill: #fff; font-size: 13px; font-weight: 600; mix-blend-mode: difference; }
+  .chart .tent-fill { fill: var(--accent); opacity: 0.14; }
+  .chart .peak-line { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .chart .peak-label { fill: var(--accent); font-size: 12px; }
+  .chart .run-dot { fill: var(--warn); stroke: var(--bg); stroke-width: 1.5; opacity: 0.92; }
+  .chart .callout-label { fill: var(--ink); font-size: 13px; font-weight: 600; }
+  .chart .callout-sub { fill: var(--muted); font-size: 11px; }
+  .chart .rubric-id { fill: var(--ink); font-size: 12.5px; font-weight: 600; }
+  .chart .rubric-pts { fill: var(--ink); font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .chart .rubric-desc { fill: var(--muted); font-size: 12px; }
+  .rubric-legend {
+    display: flex; flex-wrap: wrap; gap: 18px;
+    margin: 6px 0 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .rubric-legend .sw { display: inline-flex; align-items: center; gap: 7px; }
+  .rubric-legend .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  /* ---- featured clip: one large, bordered video embedded where it's discussed ---- */
+  figure.clip {
+    margin: 28px auto;
+    max-width: 780px;
+  }
+  .clip-frame {
+    border: 1.5px solid var(--accent);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+                0 12px 40px -12px color-mix(in srgb, var(--accent) 35%, transparent);
+    background: #000;
+  }
+  figure.clip video { display: block; width: 100%; background: #000; }
+  figure.clip figcaption {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 62ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  figure.clip figcaption b { color: var(--ink); font-weight: 600; }
+  figure.clip figcaption .pill { margin-left: 6px; vertical-align: 1px; }
+
+  /* ---- branch map ---- */
+  .branchmap { font-family: var(--mono); font-size: 13.5px; line-height: 2; }
+  .branchmap .b { color: var(--accent); }
+  .branchmap .d { color: var(--muted); }
+
+  footer {
+    margin-top: 72px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    color: var(--muted-2);
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <h1>The Jumping Pad: an agent-coding eval built on a real 3D game</h1>
+  <p class="lede">
+    We ablated one feature — a mushroom launch pad — from
+    <a href="https://github.com/gdquest-demos/godot-4-3d-third-person-controller" target="_blank" rel="noopener">RoboBlast</a>,
+    a real third-person shooter. We built a 100-point headless verifier for it,
+    stress-tested that verifier against 8 near-miss implementations, then ran 18 real rollouts across
+    6 agent/harness configurations to see how they'd actually do.
+  </p>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Verifier checks</div><div class="v num">16</div></div>
+    <div class="stat"><div class="k">Anti-cheat probes</div><div class="v num">8 / 8 caught</div></div>
+    <div class="stat"><div class="k">Agent rollouts</div><div class="v num">18</div></div>
+    <div class="stat"><div class="k">Score range</div><div class="v num">79.6 – 98.4</div></div>
+  </div>
+
+  <h2><span class="n">01</span><span class="title">Why this feature</span></h2>
+  <div class="prose">
+    <p>
+      Somewhere in the level sits a small mushroom pad. Step on it, and it launches the player
+      into the air with a satisfying, springy bounce - the cap squashing down on contact, then
+      snapping back with an elastic overshoot before settling. We chose to ablate this
+      behavior and hand it to agents to rebuild from a description alone.
+    </p>
+    <p>
+      It's the right size for the job. Big enough to have implementation complexity — a physics
+      launch with its own magnitude, direction, and momentum rules, paired with a set of different visual
+      animations — but not so big that it sprawls across the codebase.
+    </p>
+  </div>
+
+  <figure class="clip">
+    <div class="clip-frame"><video src="clips/ablated.mp4" controls preload="metadata"></video></div>
+    <figcaption><b>The ablated pad</b> — exactly what the agent receives. Walking onto it does nothing; the behavior has been removed entirely. <span class="pill bad">broken</span></figcaption>
+  </figure>
+
+  <figure class="clip">
+    <div class="clip-frame"><video src="clips/legacy.mp4" controls preload="metadata"></video></div>
+    <figcaption><b>The original, correct behavior</b> — instant launch at ~3.4× a normal jump, the cap snapping down and springing back with a visible elastic overshoot. This is what the verifier grades against. <span class="pill good">ground truth</span></figcaption>
+  </figure>
+
+  <h2><span class="n">02</span><span class="title">How difficulty was calibrated</span></h2>
+  <div class="prose">
+    <p>
+      The first spec draft stated the launch multiplier explicitly ("~3.4× a normal jump") and
+      described the override mechanics in rough mathematical terms. On our early test rollouts, models we tested swept the verifier, scoring <b class="num">100/100</b> by transcribing the
+      spec's own numbers straight back into code — visible directly in their own comments.
+    </p>
+  </div>
+
+  <div class="agent-quote">
+    <div class="avatar">G</div>
+    <div class="bubble">
+      <span class="line">"To reach 3.4x the normal jump height, we need sqrt(3.4) times the impulse."</span>
+      <span class="signed">— Gemini 3 Flash, first rollout</span>
+    </div>
+  </div>
+
+  <div class="prose">
+    <p>We knew right away we needed to raise the difficulty. A model that only has to transcribe
+    a spec's own numbers back into code isn't demonstrating any real understanding of the game —
+    it's demonstrating that it can read.</p>
+  </div>
+  <div class="callout warn">
+    <p><b>We rewrote every mathematical and implementation detail into completely player-facing
+    language.</b> Numbers like "3.4×" and descriptions of override mechanics became descriptions
+    of what the player actually experiences — "a dramatic super-bounce," "the pad sends them to
+    the same result every time." That shift alone raised the bar: with no number to
+    copy, an agent had to form its own judgment about what "dramatic" means, then
+    verify that judgment against the running game rather than guess once and move on. Most, it
+    turned out, never bothered with the second part.</p>
+  </div>
+  <div class="prose">
+    <p>We also sharpened the grading scale to match. Rather than accepting anything inside a
+    generous band as fully correct, we rebuilt the verifier to hand out full marks only for close
+    matches to the original's actual measured behavior, with every other outcome earning partial
+    credit that shrinks the further it drifts — so a rough approximation and a precise one no
+    longer score the same.</p>
+  </div>
+  <div class="prose">
+    <p><b>Result: 18 real rollouts, zero sweeps, zero cratering, every agent landing 79.6–98.4.</b>
+    That's exactly the calibration we were aiming for, and it held consistently across 6 very
+    different agents — not a fluke on one model.</p>
+  </div>
+
+  <h2><span class="n">03</span><span class="title">The verifier</span></h2>
+  <div class="prose">
+    <p>16 checks add up to 100 points, run headless against the game's real systems — real
+    physics, real collision, whatever animation mechanism the agent actually used. Most checks
+    score continuously, closer to the original earns more; a handful stay strictly binary, where
+    the thing being tested is a yes-or-no property rather than a matter of degree.</p>
+  </div>
+  <div class="rubric-legend">
+    <span class="sw"><span class="dot" style="background:#4FC7E8"></span>continuous — closer to the original scores higher</span>
+    <span class="sw"><span class="dot" style="background:#F0B860"></span>mixed — part binary gate, part continuous</span>
+    <span class="sw"><span class="dot" style="background:#6B7A90"></span>binary — a yes/no property, not a judgment call</span>
+  </div>
+  <div class="chart-block"><svg viewBox="0 0 1000 524" class="chart chart-rubric" role="img" aria-label="All 16 verifier checks with point values, scoring shape, and what each one checks">
+
+    <text x="176" y="26.0" text-anchor="end" class="rubric-id">T7</text>
+    <rect x="190" y="12.0" width="420.0" height="20" rx="3" fill="#4FC7E8"/>
+    <text x="620" y="26.0" class="rubric-pts">15</text>
+    <text x="670" y="26.0" class="rubric-desc">overshoots past rest, then settles</text>
+    <text x="176" y="58.0" text-anchor="end" class="rubric-id">T2</text>
+    <rect x="190" y="44.0" width="420.0" height="20" rx="3" fill="#F0B860"/>
+    <text x="620" y="58.0" class="rubric-pts">15</text>
+    <text x="670" y="58.0" class="rubric-desc">real velocity and gravity, not a scripted fake</text>
+    <text x="176" y="90.0" text-anchor="end" class="rubric-id">T6</text>
+    <rect x="190" y="76.0" width="336.0" height="20" rx="3" fill="#4FC7E8"/>
+    <text x="620" y="90.0" class="rubric-pts">12</text>
+    <text x="670" y="90.0" class="rubric-desc">cap compresses instantly, to the right depth</text>
+    <text x="176" y="122.0" text-anchor="end" class="rubric-id">T3</text>
+    <rect x="190" y="108.0" width="280.0" height="20" rx="3" fill="#4FC7E8"/>
+    <text x="620" y="122.0" class="rubric-pts">10</text>
+    <text x="670" y="122.0" class="rubric-desc">bounce height matches the original's</text>
+    <text x="176" y="154.0" text-anchor="end" class="rubric-id">T8</text>
+    <rect x="190" y="140.0" width="196.0" height="20" rx="3" fill="#4FC7E8"/>
+    <text x="620" y="154.0" class="rubric-pts">7</text>
+    <text x="670" y="154.0" class="rubric-desc">cap returns cleanly to resting shape</text>
+    <text x="176" y="186.0" text-anchor="end" class="rubric-id">T4a</text>
+    <rect x="190" y="172.0" width="140.0" height="20" rx="3" fill="#4FC7E8"/>
+    <text x="620" y="186.0" class="rubric-pts">5</text>
+    <text x="670" y="186.0" class="rubric-desc">same peak height, whatever the fall speed</text>
+    <text x="176" y="218.0" text-anchor="end" class="rubric-id">T5a</text>
+    <rect x="190" y="204.0" width="140.0" height="20" rx="3" fill="#4FC7E8"/>
+    <text x="620" y="218.0" class="rubric-pts">5</text>
+    <text x="670" y="218.0" class="rubric-desc">launch follows the pad's own tilt</text>
+    <text x="176" y="250.0" text-anchor="end" class="rubric-id">T10a</text>
+    <rect x="190" y="236.0" width="140.0" height="20" rx="3" fill="#6B7A90"/>
+    <text x="620" y="250.0" class="rubric-pts">5</text>
+    <text x="670" y="250.0" class="rubric-desc">an enemy standing on it doesn't launch</text>
+    <text x="176" y="282.0" text-anchor="end" class="rubric-id">T10b</text>
+    <rect x="190" y="268.0" width="140.0" height="20" rx="3" fill="#6B7A90"/>
+    <text x="620" y="282.0" class="rubric-pts">5</text>
+    <text x="670" y="282.0" class="rubric-desc">a crate standing on it doesn't launch</text>
+    <text x="176" y="314.0" text-anchor="end" class="rubric-id">TMC</text>
+    <rect x="190" y="300.0" width="140.0" height="20" rx="3" fill="#6B7A90"/>
+    <text x="620" y="314.0" class="rubric-pts">5</text>
+    <text x="670" y="314.0" class="rubric-desc">player can still steer while airborne</text>
+    <text x="176" y="346.0" text-anchor="end" class="rubric-id">T9</text>
+    <rect x="190" y="332.0" width="112.0" height="20" rx="3" fill="#6B7A90"/>
+    <text x="620" y="346.0" class="rubric-pts">4</text>
+    <text x="670" y="346.0" class="rubric-desc">a second bounce replays the squash</text>
+    <text x="176" y="378.0" text-anchor="end" class="rubric-id">T4b</text>
+    <rect x="190" y="364.0" width="84.0" height="20" rx="3" fill="#4FC7E8"/>
+    <text x="620" y="378.0" class="rubric-pts">3</text>
+    <text x="670" y="378.0" class="rubric-desc">running speed doesn't carry through</text>
+    <text x="176" y="410.0" text-anchor="end" class="rubric-id">T1a</text>
+    <rect x="190" y="396.0" width="84.0" height="20" rx="3" fill="#6B7A90"/>
+    <text x="620" y="410.0" class="rubric-pts">3</text>
+    <text x="670" y="410.0" class="rubric-desc">normal jumping still works as before</text>
+    <text x="176" y="442.0" text-anchor="end" class="rubric-id">T1b</text>
+    <rect x="190" y="428.0" width="56.0" height="20" rx="3" fill="#6B7A90"/>
+    <text x="620" y="442.0" class="rubric-pts">2</text>
+    <text x="670" y="442.0" class="rubric-desc">pad's idle shape wasn't altered</text>
+    <text x="176" y="474.0" text-anchor="end" class="rubric-id">T5b</text>
+    <rect x="190" y="460.0" width="56.0" height="20" rx="3" fill="#4FC7E8"/>
+    <text x="620" y="474.0" class="rubric-pts">2</text>
+    <text x="670" y="474.0" class="rubric-desc">tilted launch is redirected, not stacked</text>
+    <text x="176" y="506.0" text-anchor="end" class="rubric-id">T11</text>
+    <rect x="190" y="492.0" width="56.0" height="20" rx="3" fill="#6B7A90"/>
+    <text x="620" y="506.0" class="rubric-pts">2</text>
+    <text x="670" y="506.0" class="rubric-desc">bouncing one pad leaves others alone</text>
+</svg><div class="chart-caption">All 16 checks, sorted by weight.</div></div>
+
+  <h2><span class="n">04</span><span class="title">Anti-cheat probes</span></h2>
+  <div class="prose">
+    <p>Eight hand-written near-miss implementations, each built to fool a sloppy grader.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Probe</th><th>The cheat</th><th class="num">Score</th><th>Caught by</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">P1</td><td>Launches correctly, cap never animates</td><td class="num">60.0</td><td>Cap never compresses, overshoots, or replays on a repeat bounce.</td></tr>
+        <tr><td class="mono">P2</td><td>Cap animates, player never launches</td><td class="num">45.0</td><td>No real velocity, wrong height, no midair steering — launch is fake.</td></tr>
+        <tr><td class="mono">P3</td><td>Rebound is linear — no elastic overshoot</td><td class="num">85.0</td><td>Cap eases to rest instead of springing past it first.</td></tr>
+        <tr><td class="mono">P4</td><td>Squashes, then stays flattened forever</td><td class="num">78.0</td><td>Cap overshoots fine but never returns to its resting shape.</td></tr>
+        <tr><td class="mono">P5</td><td>No player filter — launches anything</td><td class="num">48.0</td><td>Enemies and crates get launched too; pad even fires on its own.</td></tr>
+        <tr><td class="mono">P6</td><td><code>+=</code> instead of <code>=</code> on launch velocity</td><td class="num">82.8</td><td>Launch height changes with fall speed instead of staying constant.</td></tr>
+        <tr><td class="mono">P7</td><td>Fakes the launch by animating position, not velocity</td><td class="num">34.0</td><td>No real velocity or gravity — fails the genuine-physics check.</td></tr>
+        <tr><td class="mono">P8</td><td>Pad is correct, but player's own jump is secretly tampered with</td><td class="num">89.0</td><td>Ordinary jumping, unrelated to the pad, stops working right.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout good">
+    <p>Every probe is a deliberate, hand-written near-miss — built by thinking adversarially about
+    exactly what a sloppy grader would miss: right shape but faked physics, right physics but no
+    visual polish, correct everywhere except one filter check.</p>
+  </div>
+
+  <figure class="clip">
+    <div class="clip-frame"><video src="clips/p3.mp4" controls preload="metadata"></video></div>
+    <figcaption><b>Probe P3</b> — launch and squash depth are both correct; the rebound just eases back with no elastic wobble. It's subtle so watch the cap closely on the way down. <span class="pill bad">cheat, 85.0 / 100</span></figcaption>
+  </figure>
+
+  <figure class="clip">
+    <div class="clip-frame"><video src="clips/p7.mp4" controls preload="metadata"></video></div>
+    <figcaption><b>Probe P7</b> — fakes the launch by animating position instead of velocity: a floaty, non-ballistic rise, no midair steering, and a self-sustaining bounce loop once the player's real gravity takes back over. <span class="pill bad">cheat, 34.0 / 100</span></figcaption>
+  </figure>
+
+  <h2><span class="n">05</span><span class="title">Evaluation integrity</span></h2>
+  <h3>Isolation</h3>
+  <div class="prose">
+    <p>Every rollout gets a <code>git archive</code> export of the ablation branch into a fresh
+    directory with a fresh <code>git init</code> — no history, no remotes, no other branches. This meant no <code>verifier/</code> directory present, zero registered remotes, and the pad script confirmed
+    ablated with no path back to the original anywhere on disk.</p>
+  </div>
+  <h3>Network posture</h3>
+  <div class="callout good">
+    <p>Every harness we ran — Claude Code, Gemini CLI, and OpenCode — has an explicit deny-list
+    blocking <code>WebFetch</code>, <code>WebSearch</code>, and any network-capable shell command,
+    verified directly against each config. We also scanned every transcript for network-related
+    tool calls after the fact: zero across all 18 rollouts.</p>
+  </div>
+  <p>Every attempt's diff is also scanned post-hoc for verbatim line matches against the original
+  16-line implementation. Across all 18 real rollouts, matches never exceeded 1 (the
+  "plausible convergence" band for generic lines like <code>var tween := create_tween()</code>) and
+  no run showed evidence of having seen the original source.</p>
+
+  <h2><span class="n">06</span><span class="title">Agent runs</span></h2>
+  <div class="prose">
+    <p>3 runs each across 6 configurations — Claude Code (Sonnet 5, Opus 4.8), Gemini CLI (Gemini 3
+    Flash), GPT-5.5 via OpenCode, and both native-Gemini CLI and OpenCode for Gemini 3.1 Pro (a harness
+    comparison on the identical model). All with the Godot MCP
+    available.</p>
+  </div>
+
+  <div class="chart-block">
+    <h3>Average score, with min–max spread</h3>
+    <svg viewBox="0 0 860 320" class="chart chart-scores" role="img" aria-label="Average score with min-max spread per agent">
+<line x1="210.0" y1="16" x2="210.0" y2="284.0" class="grid"/><text x="210.0" y="306.0" text-anchor="middle" class="axis-label">70</text><line x1="413.3" y1="16" x2="413.3" y2="284.0" class="grid"/><text x="413.3" y="306.0" text-anchor="middle" class="axis-label">80</text><line x1="616.7" y1="16" x2="616.7" y2="284.0" class="grid"/><text x="616.7" y="306.0" text-anchor="middle" class="axis-label">90</text><line x1="820.0" y1="16" x2="820.0" y2="284.0" class="grid"/><text x="820.0" y="306.0" text-anchor="middle" class="axis-label">100</text>
+
+    <g class="row">
+      <text x="194" y="42.33333333333333" text-anchor="end" class="agent-label">Sonnet 5</text>
+      <line x1="592.3" y1="38.3" x2="724.4" y2="38.3" class="spread-line"/>
+      <line x1="592.3" y1="33.3" x2="592.3" y2="43.3" class="spread-cap"/>
+      <line x1="724.4" y1="33.3" x2="724.4" y2="43.3" class="spread-cap"/>
+      <circle cx="640.5" cy="38.3" r="7" class="avg-dot"/>
+      <text x="640.5" y="24.3" text-anchor="middle" class="avg-label">91.2</text>
+    </g>
+    <g class="row">
+      <text x="194" y="87.0" text-anchor="end" class="agent-label">Opus 4.8</text>
+      <line x1="671.6" y1="83.0" x2="720.4" y2="83.0" class="spread-line"/>
+      <line x1="671.6" y1="78.0" x2="671.6" y2="88.0" class="spread-cap"/>
+      <line x1="720.4" y1="78.0" x2="720.4" y2="88.0" class="spread-cap"/>
+      <circle cx="704.1" cy="83.0" r="7" class="avg-dot"/>
+      <text x="704.1" y="69.0" text-anchor="middle" class="avg-label">94.3</text>
+    </g>
+    <g class="row">
+      <text x="194" y="131.66666666666666" text-anchor="end" class="agent-label">Gemini 3 Flash</text>
+      <line x1="405.2" y1="127.7" x2="722.4" y2="127.7" class="spread-line"/>
+      <line x1="405.2" y1="122.7" x2="405.2" y2="132.7" class="spread-cap"/>
+      <line x1="722.4" y1="122.7" x2="722.4" y2="132.7" class="spread-cap"/>
+      <circle cx="590.8" cy="127.7" r="7" class="avg-dot"/>
+      <text x="590.8" y="113.7" text-anchor="middle" class="avg-label">88.7</text>
+    </g>
+    <g class="row">
+      <text x="194" y="176.33333333333334" text-anchor="end" class="agent-label">Gemini 3.1 Pro (native)</text>
+      <line x1="653.3" y1="172.3" x2="750.9" y2="172.3" class="spread-line"/>
+      <line x1="653.3" y1="167.3" x2="653.3" y2="177.3" class="spread-cap"/>
+      <line x1="750.9" y1="167.3" x2="750.9" y2="177.3" class="spread-cap"/>
+      <circle cx="704.7" cy="172.3" r="7" class="avg-dot"/>
+      <text x="704.7" y="158.3" text-anchor="middle" class="avg-label">94.3</text>
+    </g>
+    <g class="row">
+      <text x="194" y="221.0" text-anchor="end" class="agent-label">Gemini 3.1 Pro (OpenCode)</text>
+      <line x1="616.7" y1="217.0" x2="750.9" y2="217.0" class="spread-line"/>
+      <line x1="616.7" y1="212.0" x2="616.7" y2="222.0" class="spread-cap"/>
+      <line x1="750.9" y1="212.0" x2="750.9" y2="222.0" class="spread-cap"/>
+      <circle cx="687.2" cy="217.0" r="7" class="avg-dot"/>
+      <text x="687.2" y="203.0" text-anchor="middle" class="avg-label">93.5</text>
+    </g>
+    <g class="row">
+      <text x="194" y="265.66666666666663" text-anchor="end" class="agent-label">GPT-5.5</text>
+      <line x1="614.6" y1="261.7" x2="787.5" y2="261.7" class="spread-line"/>
+      <line x1="614.6" y1="256.7" x2="614.6" y2="266.7" class="spread-cap"/>
+      <line x1="787.5" y1="256.7" x2="787.5" y2="266.7" class="spread-cap"/>
+      <circle cx="702.1" cy="261.7" r="7" class="avg-dot"/>
+      <text x="702.1" y="247.7" text-anchor="middle" class="avg-label">94.2</text>
+    </g>
+</svg>
+    <div class="chart-caption">3 runs per agent. Dot = average, bar = full range.</div>
+  </div>
+
+  <div class="prose">
+    <p>Almost every lost point traces back to three checks: T3 (bounce height), T6 (squash depth),
+    and T7 (overshoot). The heatmap below shows the average score on each of those, plus every
+    other check grouped together, broken down by agent.</p>
+  </div>
+
+  <div class="chart-block">
+    <h3>Where the points actually get lost</h3>
+    <svg viewBox="0 0 860 300" class="chart chart-heatmap" role="img" aria-label="Average percent score per check group, by agent">
+<text x="288.8" y="26.0" text-anchor="middle" class="col-label">T3</text><text x="446.2" y="26.0" text-anchor="middle" class="col-label">T6</text><text x="603.8" y="26.0" text-anchor="middle" class="col-label">T7</text><text x="761.2" y="26.0" text-anchor="middle" class="col-label">13 other checks</text>
+<text x="194" y="64.0" text-anchor="end" class="agent-label">Sonnet 5</text><rect x="212.0" y="42.0" width="153.5" height="36.0" fill="#8a8f3f" rx="2"/><text x="288.8" y="64.0" text-anchor="middle" class="cell-label">80</text><rect x="369.5" y="42.0" width="153.5" height="36.0" fill="#8a8f3f" rx="2"/><text x="446.2" y="64.0" text-anchor="middle" class="cell-label">67</text><rect x="527.0" y="42.0" width="153.5" height="36.0" fill="#5c8f4a" rx="2"/><text x="603.8" y="64.0" text-anchor="middle" class="cell-label">81</text><rect x="684.5" y="42.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="761.2" y="64.0" text-anchor="middle" class="cell-label">100</text><text x="194" y="104.0" text-anchor="end" class="agent-label">Opus 4.8</text><rect x="212.0" y="82.0" width="153.5" height="36.0" fill="#a8793f" rx="2"/><text x="288.8" y="104.0" text-anchor="middle" class="cell-label">62</text><rect x="369.5" y="82.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="446.2" y="104.0" text-anchor="middle" class="cell-label">100</text><rect x="527.0" y="82.0" width="153.5" height="36.0" fill="#5c8f4a" rx="2"/><text x="603.8" y="104.0" text-anchor="middle" class="cell-label">87</text><rect x="684.5" y="82.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="761.2" y="104.0" text-anchor="middle" class="cell-label">100</text><text x="194" y="144.0" text-anchor="end" class="agent-label">Gemini 3 Flash</text><rect x="212.0" y="122.0" width="153.5" height="36.0" fill="#a8793f" rx="2"/><text x="288.8" y="144.0" text-anchor="middle" class="cell-label">57</text><rect x="369.5" y="122.0" width="153.5" height="36.0" fill="#5c8f4a" rx="2"/><text x="446.2" y="144.0" text-anchor="middle" class="cell-label">89</text><rect x="527.0" y="122.0" width="153.5" height="36.0" fill="#a8793f" rx="2"/><text x="603.8" y="144.0" text-anchor="middle" class="cell-label">63</text><rect x="684.5" y="122.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="761.2" y="144.0" text-anchor="middle" class="cell-label">100</text><text x="194" y="184.0" text-anchor="end" class="agent-label">Gemini 3.1 Pro (native)</text><rect x="212.0" y="162.0" width="153.5" height="36.0" fill="#a8793f" rx="2"/><text x="288.8" y="184.0" text-anchor="middle" class="cell-label">57</text><rect x="369.5" y="162.0" width="153.5" height="36.0" fill="#5c8f4a" rx="2"/><text x="446.2" y="184.0" text-anchor="middle" class="cell-label">89</text><rect x="527.0" y="162.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="603.8" y="184.0" text-anchor="middle" class="cell-label">100</text><rect x="684.5" y="162.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="761.2" y="184.0" text-anchor="middle" class="cell-label">100</text><text x="194" y="224.0" text-anchor="end" class="agent-label">Gemini 3.1 Pro (OpenCode)</text><rect x="212.0" y="202.0" width="153.5" height="36.0" fill="#a85a3f" rx="2"/><text x="288.8" y="224.0" text-anchor="middle" class="cell-label">37</text><rect x="369.5" y="202.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="446.2" y="224.0" text-anchor="middle" class="cell-label">100</text><rect x="527.0" y="202.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="603.8" y="224.0" text-anchor="middle" class="cell-label">98</text><rect x="684.5" y="202.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="761.2" y="224.0" text-anchor="middle" class="cell-label">100</text><text x="194" y="264.0" text-anchor="end" class="agent-label">GPT-5.5</text><rect x="212.0" y="242.0" width="153.5" height="36.0" fill="#8a8f3f" rx="2"/><text x="288.8" y="264.0" text-anchor="middle" class="cell-label">71</text><rect x="369.5" y="242.0" width="153.5" height="36.0" fill="#5c8f4a" rx="2"/><text x="446.2" y="264.0" text-anchor="middle" class="cell-label">89</text><rect x="527.0" y="242.0" width="153.5" height="36.0" fill="#5c8f4a" rx="2"/><text x="603.8" y="264.0" text-anchor="middle" class="cell-label">89</text><rect x="684.5" y="242.0" width="153.5" height="36.0" fill="#3a7a5c" rx="2"/><text x="761.2" y="264.0" text-anchor="middle" class="cell-label">100</text>
+</svg>
+    <div class="chart-caption">Average % of max, per check group, across every agent.</div>
+  </div>
+
+  <h3>All run data</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Agent</th><th>Harness</th><th class="num">Run 1</th><th class="num">Run 2</th><th class="num">Run 3</th><th class="num">Avg</th></tr></thead>
+      <tbody>
+        <tr><td>Claude Sonnet 5</td><td>Claude Code</td><td class="num">88.8</td><td class="num">95.3</td><td class="num">89.4</td><td class="num"><b>91.2</b></td></tr>
+        <tr><td>Claude Opus 4.8</td><td>Claude Code</td><td class="num">95.1</td><td class="num">95.1</td><td class="num">92.7</td><td class="num"><b>94.3</b></td></tr>
+        <tr><td>Gemini 3 Flash</td><td>Gemini CLI</td><td class="num">91.4</td><td class="num">79.6</td><td class="num">95.2</td><td class="num"><b>88.7</b></td></tr>
+        <tr><td>Gemini 3.1 Pro</td><td>Gemini CLI (native)</td><td class="num">91.8</td><td class="num">94.6</td><td class="num">96.6</td><td class="num"><b>94.3</b></td></tr>
+        <tr><td>Gemini 3.1 Pro</td><td>OpenCode / OpenRouter</td><td class="num">96.6</td><td class="num">93.8</td><td class="num">90.0</td><td class="num"><b>93.5</b></td></tr>
+        <tr><td>GPT-5.5</td><td>OpenCode / OpenRouter</td><td class="num">89.9</td><td class="num">98.4</td><td class="num">94.3</td><td class="num"><b>94.2</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2><span class="n">07</span><span class="title">Failure analysis</span></h2>
+  <h3>The headline finding: models converge on the same wrong number</h3>
+  <div class="chart-block">
+    <svg viewBox="0 0 860 260" class="chart chart-scatter" role="img" aria-label="Distribution of guessed launch magnitude ratios across all 18 runs, against the scoring curve">
+<path d="M 40.0 210.0 L 40.0 210.0 L 43.7 206.4 L 47.4 202.8 L 51.1 199.2 L 54.9 195.7 L 58.6 192.1 L 62.3 188.5 L 66.0 184.9 L 69.7 181.3 L 73.4 177.7 L 77.1 174.1 L 80.9 170.5 L 84.6 167.0 L 88.3 163.4 L 92.0 159.8 L 95.7 156.2 L 99.4 152.6 L 103.1 149.0 L 106.9 145.4 L 110.6 141.8 L 114.3 138.3 L 118.0 134.7 L 121.7 131.1 L 125.4 127.5 L 129.1 123.9 L 132.9 120.3 L 136.6 116.7 L 140.3 113.2 L 144.0 111.0 L 147.7 111.0 L 151.4 111.2 L 155.1 111.8 L 158.9 112.4 L 162.6 113.0 L 166.3 113.6 L 170.0 114.1 L 173.7 114.7 L 177.4 115.3 L 181.1 115.9 L 184.9 116.5 L 188.6 117.0 L 192.3 117.6 L 196.0 118.2 L 199.7 118.8 L 203.4 119.4 L 207.1 119.9 L 210.9 120.5 L 214.6 121.1 L 218.3 121.7 L 222.0 122.3 L 225.7 122.9 L 229.4 123.4 L 233.1 124.0 L 236.9 124.6 L 240.6 125.2 L 244.3 125.8 L 248.0 126.3 L 251.7 126.9 L 255.4 127.5 L 259.1 128.1 L 262.9 128.7 L 266.6 129.2 L 270.3 129.8 L 274.0 130.4 L 277.7 131.0 L 281.4 131.6 L 285.1 132.1 L 288.9 132.7 L 292.6 133.3 L 296.3 133.9 L 300.0 134.5 L 303.7 135.1 L 307.4 135.6 L 311.1 136.2 L 314.9 136.8 L 318.6 137.4 L 322.3 138.0 L 326.0 138.5 L 329.7 139.1 L 333.4 139.7 L 337.1 140.3 L 340.9 140.9 L 344.6 141.4 L 348.3 142.0 L 352.0 142.6 L 355.7 143.2 L 359.4 143.8 L 363.1 144.3 L 366.9 144.9 L 370.6 145.5 L 374.3 146.1 L 378.0 146.7 L 381.7 147.3 L 385.4 147.8 L 389.1 148.4 L 392.9 149.0 L 396.6 149.6 L 400.3 150.2 L 404.0 150.7 L 407.7 151.3 L 411.4 151.9 L 415.1 152.5 L 418.9 153.1 L 422.6 153.6 L 426.3 154.2 L 430.0 154.8 L 433.7 155.4 L 437.4 156.0 L 441.1 156.5 L 444.9 157.1 L 448.6 157.7 L 452.3 158.3 L 456.0 158.9 L 459.7 159.5 L 463.4 160.0 L 467.1 160.6 L 470.9 161.2 L 474.6 161.8 L 478.3 162.4 L 482.0 162.9 L 485.7 163.5 L 489.4 164.1 L 493.1 164.7 L 496.9 165.3 L 500.6 165.8 L 504.3 166.4 L 508.0 167.0 L 511.7 167.6 L 515.4 168.2 L 519.1 168.7 L 522.9 169.3 L 526.6 169.9 L 530.3 170.5 L 534.0 171.1 L 537.7 171.7 L 541.4 172.2 L 545.1 172.8 L 548.9 173.4 L 552.6 174.0 L 556.3 174.6 L 560.0 175.1 L 563.7 175.7 L 567.4 176.3 L 571.1 176.9 L 574.9 177.5 L 578.6 178.0 L 582.3 178.6 L 586.0 179.2 L 589.7 179.8 L 593.4 180.4 L 597.1 181.0 L 600.9 181.5 L 604.6 182.1 L 608.3 182.7 L 612.0 183.3 L 615.7 183.9 L 619.4 184.4 L 623.1 185.0 L 626.9 185.6 L 630.6 186.2 L 634.3 186.8 L 638.0 187.3 L 641.7 187.9 L 645.4 188.5 L 649.1 189.1 L 652.9 189.7 L 656.6 190.2 L 660.3 190.8 L 664.0 191.4 L 667.7 192.0 L 671.4 192.6 L 675.1 193.2 L 678.9 193.7 L 682.6 194.3 L 686.3 194.9 L 690.0 195.5 L 693.7 196.1 L 697.4 196.6 L 701.1 197.2 L 704.9 197.8 L 708.6 198.4 L 712.3 199.0 L 716.0 199.5 L 719.7 200.1 L 723.4 200.7 L 727.1 201.3 L 730.9 201.9 L 734.6 202.4 L 738.3 203.0 L 742.0 203.6 L 745.7 204.2 L 749.4 204.8 L 753.1 205.4 L 756.9 205.9 L 760.6 206.5 L 764.3 207.1 L 768.0 207.7 L 771.7 208.3 L 775.4 208.8 L 779.1 209.4 L 782.9 210.0 L 786.6 210.0 L 790.3 210.0 L 794.0 210.0 L 797.7 210.0 L 801.4 210.0 L 805.1 210.0 L 808.9 210.0 L 812.6 210.0 L 816.3 210.0 L 816.3 210.0 Z" class="tent-fill"/>
+<line x1="146.2" y1="30" x2="146.2" y2="210.0" class="peak-line"/><text x="146.2" y="20.0" text-anchor="middle" class="peak-label">original 3.43x</text>
+<text x="40.0" y="228.0" text-anchor="middle" class="axis-label">2x</text><text x="188.6" y="228.0" text-anchor="middle" class="axis-label">4x</text><text x="337.1" y="228.0" text-anchor="middle" class="axis-label">6x</text><text x="485.7" y="228.0" text-anchor="middle" class="axis-label">8x</text><text x="634.3" y="228.0" text-anchor="middle" class="axis-label">10x</text><text x="782.9" y="228.0" text-anchor="middle" class="axis-label">12x</text>
+<circle cx="305.9" cy="196.0" r="6.5" class="run-dot"/><circle cx="276.2" cy="196.0" r="6.5" class="run-dot"/><circle cx="248.0" cy="196.0" r="6.5" class="run-dot"/><circle cx="367.6" cy="196.0" r="6.5" class="run-dot"/><circle cx="367.6" cy="180.0" r="6.5" class="run-dot"/><circle cx="433.7" cy="196.0" r="6.5" class="run-dot"/><circle cx="541.4" cy="196.0" r="6.5" class="run-dot"/><circle cx="367.6" cy="164.0" r="6.5" class="run-dot"/><circle cx="367.6" cy="148.0" r="6.5" class="run-dot"/><circle cx="541.4" cy="180.0" r="6.5" class="run-dot"/><circle cx="367.6" cy="132.0" r="6.5" class="run-dot"/><circle cx="367.6" cy="116.0" r="6.5" class="run-dot"/><circle cx="367.6" cy="100.0" r="6.5" class="run-dot"/><circle cx="541.4" cy="164.0" r="6.5" class="run-dot"/><circle cx="742.0" cy="196.0" r="6.5" class="run-dot"/><circle cx="433.7" cy="180.0" r="6.5" class="run-dot"/><circle cx="248.0" cy="180.0" r="6.5" class="run-dot"/><circle cx="305.9" cy="180.0" r="6.5" class="run-dot"/>
+
+<text x="367.6" y="244.0" text-anchor="middle" class="callout-label">6.41x</text>
+<text x="367.6" y="258.0" text-anchor="middle" class="callout-sub">(~30 m/s) x7</text>
+<text x="541.4" y="244.0" text-anchor="middle" class="callout-label">8.75x</text>
+<text x="541.4" y="258.0" text-anchor="middle" class="callout-sub">(~35 m/s) x3</text>
+
+</svg>
+    <div class="chart-caption">Every guessed launch-magnitude ratio across all 18 runs, plotted
+    against the scoring curve (shaded). Dots stack where multiple runs landed on the identical
+    value.</div>
+  </div>
+  <div class="prose">
+    <p><b>10 of 18 runs converged on just two exact values</b> — 6.41x (7 runs, spanning
+    Claude Opus 4.8, Gemini 3 Flash, and both Gemini 3.1 Pro harnesses) and 8.75x (3 runs, spanning
+    Gemini 3 Flash, Gemini 3.1 Pro native, and Gemini 3.1 Pro via OpenCode). Both back-calculate to
+    respective launch velocities of <b class="num">~30 m/s</b> and <b class="num">~35
+    m/s</b> while the original's actual value is <b class="num">22 m/s</b> (~3.43x the regular jump height).</p>
+    
+    <p>This is not a verifier artifact. Critical values like <code>jump_initial_impulse := 12.0</code> and
+      <code>gravity := -30.0</code> sat unhidden near the top of <code>player.gd</code>, a file
+      every agent should have read. The pad's own tuning constant was deleted with the rest of the ablated script so closing that gap meant testing
+      a guess in-engine against a normal jump. With the Godot MCP available for exactly that, none of
+      18 rollouts did. Different models, providers, and harnesses converging on the same two round
+      numbers points to a shared "big jump" training convention, not task-specific reasoning.</p>
+  </div>
+
+  <figure class="clip">
+    <div class="clip-frame"><video src="clips/geminipro1.mp4" controls preload="metadata"></video></div>
+    <figcaption><b>gemini31pro-1</b> — a working implementation, but the 8.75× magnitude guess is visibly, dramatically higher than the original. <span class="pill warn">91.8 / 100</span></figcaption>
+  </figure>
+
+  <h3>A genuine judgment call, not a clean miss</h3>
+  <div class="prose">
+    <p><code>gemini3flash-2</code> (our one outlier, 79.6) lost all 15 T7 points because its
+    hand-crafted 4-step squash sequence stretched to <b class="num">160%</b> of rest size — landing
+    exactly on the curve's upper zero-cutoff.
+  </div>
+
+  <figure class="clip">
+    <div class="clip-frame"><video src="clips/geminiflash2.mp4" controls preload="metadata"></video></div>
+    <figcaption><b>gemini3flash-2</b> — hand-crafted 4-step wobble; the stretch phase overshoots to 160% of rest size, right at the curve's zero-cutoff. <span class="pill warn">79.6 / 100</span></figcaption>
+  </figure>
+
+  <h2><span class="n">08</span><span class="title">How to navigate this fork</span></h2>
+  <div class="panel branchmap">
+    <div><span class="b">main</span> <span class="d">— locked base, untouched original game</span></div>
+    <div><span class="b">task/jumppad-ablation</span> <span class="d">— what the agent sees: ablated pad + SPEC.md</span></div>
+    <div><span class="b">verifier</span> <span class="d">— verify.gd, README, this writeup, all 8 probes + evidence</span></div>
+    <div><span class="b">runs/&lt;agent&gt;-&lt;n&gt;</span> <span class="d">— each rollout's diff + transcript + telltale scan + grade report (18 branches)</span></div>
+  </div>
+  <p>Verifier lives only on <code>verifier</code>, never merged into the ablation branch or
+  <code>main</code> — the rollout agent's exported snapshot has no path to reach it, proven
+  directly in section 05. To grade an attempt yourself, run:</p>
+  <div class="table-wrap">
+    <table><tbody><tr><td style="font-family:var(--mono);font-size:13.5px;padding:14px 16px;">
+/Applications/Godot.app/Contents/MacOS/Godot --headless \<br>
+&nbsp;&nbsp;--path &lt;project-under-test&gt; \<br>
+&nbsp;&nbsp;--script res://verifier/verify.gd
+    </td></tr></tbody></table>
+  </div>
+
+  <h2><span class="n">09</span><span class="title">Conclusion</span></h2>
+  <div class="prose">
+    <p>The verifier holds up: every probe fails honestly, every real agent scores on a continuous
+    curve, and the one biggest gap in the task — the pad's own launch magnitude — separates every
+    model tested from a perfect score.</p>
+  </div>
+
+
+  <footer>
+    RoboBlast: TPS Demo (gdquest-demos, Godot 4.6) · verified with Godot 4.6.3.stable ·
+    16 checks / 100 pts · 8/8 probes caught · 18/18 rollouts scored, 0 sweeps
+  </footer>
+
+</div>
