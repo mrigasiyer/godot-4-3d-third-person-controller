@@ -52,7 +52,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 10.0
     },
     {
-      "detail": "post-dip max height 121.8% of rest (need >= 102%)",
+      "detail": "post-dip max height 121.8% of rest (peak credit at 122.4%, need > 100% for any credit)",
       "id": "T7",
       "max": 15.0,
       "name": "Elastic rebound overshoots rest height",
@@ -60,7 +60,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 15.0
     },
     {
-      "detail": "worst deviation in settle window 0.0% (limit 2%)",
+      "detail": "worst deviation in settle window 0.0% (full credit <= 0.5%, zero by 8%)",
       "id": "T8",
       "max": 7.0,
       "name": "Cap settles back to rest within ~2 s",
