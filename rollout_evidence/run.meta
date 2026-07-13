@@ -1,0 +1,14 @@
+run: gemini31pro-or-1
+agent: gemini31pro-or
+started: 2026-07-13T00:47:17Z
+harness: opencode 1.17.18
+model: openrouter/google/gemini-3.1-pro-preview (OpenRouter fallback, not Gemini CLI)
+finished: 2026-07-13T00:49:25Z
+wall_seconds: 128
+exit_code: 0
+files_changed:
+ M jumping_pad/jumping_pad.gd
+?? .claude/
+?? .gemini/
+?? .mcp.json
+?? opencode.json
