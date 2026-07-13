@@ -20,7 +20,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 2.0
     },
     {
-      "detail": "launched 2 frame(s) after contact; ballistic flight verified",
+      "detail": "launched 2 frame(s) after contact (full credit <= 2) [7.0/7]; real physics verified [4.0/4]; time-to-peak off by 0.0 frames (full credit <= 1) [4.0/4]",
       "id": "T2",
       "max": 15.0,
       "name": "Instant real-physics launch on contact",
@@ -44,15 +44,15 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 5.0
     },
     {
-      "detail": "height dipped to 40% of rest (full <= 80%, half <= 90%)",
+      "detail": "depth: dipped to 40% of rest (full <= 55%, half <= 70%) [8.0/8]; snap: reached dip 2 frame(s) after contact (full <= 3, half <= 7) [4.0/4]",
       "id": "T6",
       "max": 12.0,
-      "name": "Cap squashes on contact",
+      "name": "Cap squashes on contact (depth + instant snap)",
       "passed": true,
       "points": 12.0
     },
     {
-      "detail": "post-dip max height 122.4% of rest (need >= 102%)",
+      "detail": "post-dip max height 122.4% of rest (peak credit at 122.4%, need > 100% for any credit)",
       "id": "T7",
       "max": 15.0,
       "name": "Elastic rebound overshoots rest height",
@@ -60,7 +60,7 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
       "points": 15.0
     },
     {
-      "detail": "worst deviation in settle window 0.0% (limit 2%)",
+      "detail": "worst deviation in settle window 0.0% (full credit <= 0.5%, zero by 8%)",
       "id": "T8",
       "max": 7.0,
       "name": "Cap settles back to rest within ~2 s",
@@ -85,19 +85,35 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
     },
     {
       "detail": "no launch after high fall",
-      "id": "T4",
-      "max": 8.0,
+      "id": "T4a",
+      "max": 5.0,
       "name": "Launch overrides prior vertical velocity",
       "passed": false,
       "points": 0.0
     },
     {
-      "detail": "horizontal launch component along lean 5.00 m/s (need >= 2.5)",
-      "id": "T5",
-      "max": 7.0,
+      "detail": "horizontal speed at launch 3.83 m/s from a 8.0 m/s run-up (full credit <= 0.5)",
+      "id": "T4b",
+      "max": 3.0,
+      "name": "Launch overrides prior horizontal velocity",
+      "passed": false,
+      "points": 1.7
+    },
+    {
+      "detail": "horizontal launch component along lean 5.00 m/s (full credit at >= 5.00)",
+      "id": "T5a",
+      "max": 5.0,
       "name": "Launch follows pad orientation",
       "passed": true,
-      "points": 7.0
+      "points": 5.0
+    },
+    {
+      "detail": "tilted launch speed 10.88 m/s vs flat launch speed 15.50 m/s (ratio 0.70x, peak credit at 1.00x)",
+      "id": "T5b",
+      "max": 2.0,
+      "name": "Tilted launch magnitude matches flat-pad launch",
+      "passed": false,
+      "points": 1.1
     },
     {
       "detail": "max upward velocity 0.00 m/s (limit 3.0); pad min height 100% of rest (limit 95%)",
@@ -129,7 +145,8 @@ Godot Engine v4.6.3.stable.official.7d41c59c4 - https://godotengine.org
     "jump_peak_m": 2.3,
     "pad_rest_height_m": 1.607
   },
-  "score": 82.0,
+  "score": 82.8,
   "task": "jumping-pad"
 }
-=== SCORE: 82.0 / 100 ===
+=== SCORE: 82.8 / 100 ===
+=== SCORE: 82.8 / 100 ===
