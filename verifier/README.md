@@ -1,7 +1,20 @@
 # Jumping Pad Verifier
 
 Headless, deterministic grader for the jumping-pad task. Scores an attempt out
-of **100** across 12 sub-checks (see rubric below) and prints a JSON report.
+of **100** across 16 sub-checks (see rubric below) and prints a JSON report.
+
+## Exact command
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --headless \
+  --path <project-under-test> \
+  --script res://verifier/verify.gd
+```
+
+Requires Godot 4.6.x. `<project-under-test>` is the game plus the attempt to
+grade, with this `verifier/` directory overlaid into it (see "Grading
+workflow"). The per-check JSON report goes to stdout; exit code is `0` if the
+score is >= 60.
 
 ## Writeup
 
