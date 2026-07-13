@@ -1,0 +1,5 @@
+telltale scan for gemini31pro-or-2
+distinctive original lines (len>=25) found verbatim in the diff:
+  MATCH: @onready var mushroom: Node3D = %mushroom
+total distinctive matches: 1
+(0-1 = plausible convergence; 2+ = review transcript for exfiltration)
